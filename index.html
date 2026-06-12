@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aroeira G Fitness - Sistema Premium</title>
+    <link href="https://fonts.googleapis.com/css2?family=Anton&family=Cinzel:wght@700&family=Montserrat:wght@400;600&family=Oswald:wght@700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Aroeira G">
+    <link rel="apple-touch-icon" href="https://raw.githubusercontent.com/Zapia-App/assets/main/gym-icon.png">
+    
+    <script>
+        // Corrige problemas de scroll e altura no iOS
+        function fixIOSHeight() {
+            let vh = window.innerHeight * 0.01;
+            document.documentElement.style.setProperty('--vh', `${vh}px`);
+        }
+        window.addEventListener('resize', fixIOSHeight);
+        window.addEventListener('orientationchange', fixIOSHeight);
+        fixIOSHeight();
+    </script>
+    <style>
+        :root {
+            --vh: 1vh;
+            --gold-primary: #D4A74A;
+            --gold-dark: #A87A22;
+            --gold-light: #F0D27A;
+            --black-main: #070707;
+            --black-textured: #111111;
+            --gray-metal: #C0C0C0;
+            --white-ice: #F3F3F3;
+            --card-bg: #0d0d0d;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background-color: var(--black-main);
+            background-image: url("background.png");
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            color: var(--white-ice);
+            font-family: 'Montserrat', sans-serif;
+            min-height: calc(var(--vh) * 100);
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        h1, h2, .headline { font-family: 'Anton', sans-serif; text-transform: uppercase; letter-spacing: 1px; color: var(--gold-primary); }
+        .subheadline { font-family: 'Oswald', sans-serif; text-transform: uppercase; color: var(--gray-metal); }
+        .logo-text { font-family: 'Cinzel', serif; color: var(--gold-primary); }
+        
+        .login-screen {
+            height: calc(var(--vh) * 100); display: flex; justify-content: center; align-items: center; padding: 20px;
+            background: radial-gradient(circle, #1a1a1a 0%, #070707 100%);
+        }
+        .login-box {
+            width: 100%; max-width: 400px; background: var(--black-textured); border: 2px solid var(--gold-primary);
+            padding: 40px; text-align: center; box-shadow: 0 0 40px rgba(168, 122, 34, 0.2);
+        }
+        .login-box img { width: 150px; margin-bottom: 20px; }
+
+        input, select {
+            width: 100%; padding: 12px; margin-bottom: 15px; background: #1a1a1a;
+            border: 1px solid var(--gold-dark); color: var(--white-ice); font-family: 'Montserrat', sans-serif;
+            font-size: 16px;
+        }
+        label { display: block; font-size: 0.7rem; color: var(--gold-primary); margin-bottom: 5px; font-family: 'Oswald', sans-serif; }
+
+        button {
+            width: 100%; padding: 15px; background: linear-gradient(90deg, var(--gold-dark), var(--gold-primary), var(--gold-light));
+            border: none; color: #000; font-family: 'Oswald', sans-serif; font-weight: bold; text-transform: uppercase;
+            cursor: pointer; transition: 0.3s; letter-spacing: 1px;
+        }
+
+        .dashboard { display: none; }
+        .sidebar {
+            position: fixed; left: 0; top: 0; width: 260px; height: 100vh; background: var(--black-main);
+            border-right: 2px solid var(--gold-primary); padding: 30px 20px; z-index: 1000; overflow-y: auto;
+        }
+        .sidebar-header { text-align: center; margin-bottom: 40px; border-bottom: 1px solid var(--gold-dark); padding-bottom: 20px; }
+        .sidebar-header img { width: 100px; margin-bottom: 10px; }
+        
+        .menu-item {
+            padding: 15px; margin-bottom: 10px; cursor: pointer; font-family: 'Oswald', sans-serif;
+            text-transform: uppercase; transition: 0.3s; border-left: 3px solid transparent; color: var(--gray-metal);
+        }
+        .menu-item:hover, .menu-item.active { background: rgba(212, 167, 74, 0.1); color: var(--gold-primary); border-left: 3px solid var(--gold-primary); }
+
+        .main-content { margin-left: 260px; padding: 40px; }
+        .tab-content { display: none; animation: fadeIn 0.5s ease; }
+        .tab-content.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .cards-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 40px; }
+        .card { background: var(--card-bg); border: 1px solid var(--gold-dark); padding: 25px; position: relative; }
+        .card::after { content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%; background: var(--gold-primary); }
+        .card h3 { font-family: 'Oswald', sans-serif; color: var(--gray-metal); font-size: 0.8rem; margin-bottom: 10px; }
+        .card .value { font-family: 'Anton', sans-serif; font-size: 2rem; color: var(--white-ice); }
+
+        .data-table-container { background: var(--card-bg); border: 1px solid var(--gold-dark); padding: 20px; overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th { font-family: 'Oswald', sans-serif; text-transform: uppercase; color: var(--gold-primary); text-align: left; padding: 15px; border-bottom: 2px solid var(--gold-dark); font-size: 0.8rem; }
+        td { padding: 15px; border-bottom: 1px solid #222; font-size: 0.85rem; }
+
+        .action-btn { padding: 5px 10px; width: auto; display: inline-block; margin: 2px; font-size: 0.7rem; color: #fff; text-decoration: none; border-radius: 4px; border: none; cursor: pointer; }
+
+        #modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 2000; justify-content: center; align-items: center; }
+        .modal-box { background: var(--black-textured); border: 1px solid var(--gold-primary); width: 95%; max-width: 800px; max-height: 90vh; padding: 30px; overflow-y: auto; }
+
+        .eval-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; background: #1a1a1a; padding: 15px; margin-bottom: 20px; border: 1px solid #333; }
+        .eval-grid label { color: var(--gold-light); font-size: 0.65rem; }
+        .eval-grid input { margin-bottom: 5px; padding: 8px; font-size: 0.8rem; }
+        
+        .history-eval-card { background: #000; border: 1px solid #333; padding: 15px; margin-bottom: 10px; font-size: 0.8rem; }
+        .history-eval-card h4 { color: var(--gold-primary); border-bottom: 1px solid #222; margin-bottom: 10px; padding-bottom: 5px; }
+        .eval-data-flex { display: flex; flex-wrap: wrap; gap: 10px; }
+        .eval-item { background: #111; padding: 5px 10px; border: 1px solid #222; border-radius: 4px; }
+        .eval-item b { color: var(--gold-light); margin-right: 5px; }
+
+        .tabs-modal { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid #333; padding-bottom: 10px; }
+        .tab-modal-btn { background: transparent; color: var(--gray-metal); border: none; font-family: 'Oswald', sans-serif; cursor: pointer; padding: 5px 15px; }
+        .tab-modal-btn.active { color: var(--gold-primary); border-bottom: 2px solid var(--gold-primary); }
+
+        @media (max-width: 992px) {
+            .sidebar { width: 100%; height: auto; position: relative; border-right: none; border-bottom: 2px solid var(--gold-primary); }
+            .main-content { margin-left: 0; padding: 20px; }
+            .menu-item { display: inline-block; margin-right: 10px; padding: 10px; font-size: 0.8rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="login-screen" id="loginScreen">
+        <div class="login-box">
+            <img src="logo.png" alt="Aroeira G Fitness" onerror="this.style.display='none'">
+            <h1 class="logo-text">Aroeira G</h1>
+            <p class="subheadline" style="margin-bottom: 25px;">Elite Management</p>
+            <input type="text" id="user" placeholder="USUÁRIO">
+            <input type="password" id="pass" placeholder="SENHA">
+            <button onclick="login()">ACESSAR SISTEMA</button>
+            <div id="loginError" style="color: #ff1744; margin-top: 15px; display: none;">Credenciais Inválidas</div>
+        </div>
+    </div>
+
+    <div class="dashboard" id="dashboard">
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <img src="logo.png" alt="Logo" onerror="this.style.display='none'">
+                <h2 class="logo-text">Aroeira G</h2>
+            </div>
+            <div class="menu-item active" onclick="switchTab('tab-dashboard', this)">DASHBOARD</div>
+            <div class="menu-item" onclick="switchTab('tab-alunos', this)">ALUNOS</div>
+            <div class="menu-item" onclick="switchTab('tab-historico', this)">HISTÓRICO ANUAL</div>
+            <div class="menu-item" onclick="switchTab('tab-backup', this)">BACKUP / CONFIG</div>
+            
+            <div style="margin-top: 30px; border-top: 1px solid #333; padding-top: 10px;">
+                <div class="menu-item" onclick="changePassword()">ALTERAR SENHA</div>
+                <div class="menu-item" onclick="location.reload()" style="color: #ff1744;">SAIR</div>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <!-- ABA DASHBOARD -->
+            <div id="tab-dashboard" class="tab-content active">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
+                    <h1>Visão Geral do Mês</h1>
+                    <button onclick="turnMonth()" style="width: 180px; padding: 10px;">VIRAR O MÊS</button>
+                </div>
+                
+                <div class="cards-grid">
+                    <div class="card">
+                        <h3>TOTAL DE ALUNOS</h3>
+                        <div class="value" id="totalAlunos">0</div>
+                    </div>
+                    <div class="card">
+                        <h3>RECEITA DO MÊS</h3>
+                        <div class="value" id="receitaMes" style="color: var(--gold-light);">R$ 0</div>
+                    </div>
+                    <div class="card">
+                        <h3>FATURAMENTO TOTAL DO ANO</h3>
+                        <div class="value" id="receitaAno" style="color: #00c853;">R$ 0</div>
+                    </div>
+                    <div class="card">
+                        <h3>VENCIDOS (MÊS)</h3>
+                        <div class="value" id="vencidos" style="color: #ff1744;">0</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ABA ALUNOS -->
+            <div id="tab-alunos" class="tab-content">
+                <h1>Gestão de Alunos</h1>
+                <div class="card" style="margin-bottom: 30px;">
+                    <h2 class="subheadline" id="formTitle">Novo Cadastro</h2>
+                    <input type="hidden" id="studentId">
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-top: 15px;">
+                        <div><label>NOME COMPLETO</label><input id="name"></div>
+                        <div><label>E-MAIL</label><input id="email"></div>
+                        <div><label>TELEFONE</label><input id="phone"></div>
+                        <div><label>PLANO</label><input id="plan"></div>
+                        <div><label>VALOR</label><input id="value" type="number"></div>
+                        <div><label>DATA DE VENCIMENTO</label><input id="due" type="date"></div>
+                        <div><label>PAGAMENTO</label>
+                            <select id="payment">
+                                <option value="Pago">PAGO</option>
+                                <option value="Pendente">PENDENTE</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 10px;">
+                        <button id="btnSave" onclick="saveStudent()">SALVAR ALUNO</button>
+                        <button id="btnCancel" onclick="clearForm()" style="display:none; background: #333; color: #fff;">CANCELAR</button>
+                    </div>
+                </div>
+
+                <div class="data-table-container">
+                    <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+                        <input id="search" placeholder="BUSCAR ALUNO..." onkeyup="renderStudents()" style="margin-bottom:0">
+                        <select id="filter" onchange="renderStudents()" style="width: 200px; margin-bottom:0">
+                            <option value="Todos">TODOS</option>
+                            <option value="Em Dia">EM DIA</option>
+                            <option value="Vencido">VENCIDO</option>
+                            <option value="ProxVencimento">ORDEM: MAIS PRÓXIMO</option>
+                            <option value="DistVencimento">ORDEM: MAIS DISTANTE</option>
+                        </select>
+                    </div>
+                    <table>
+                        <thead>
+                            <tr><th>NOME</th><th>PLANO</th><th>VENCIMENTO</th><th>PAGAMENTO</th><th>AÇÕES</th></tr>
+                        </thead>
+                        <tbody id="studentsTable"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- ABA HISTÓRICO -->
+            <div id="tab-historico" class="tab-content">
+                <h1>Histórico Anual</h1>
+                <div class="data-table-container">
+                    <table>
+                        <thead>
+                            <tr><th>MÊS REFERÊNCIA</th><th>ALUNOS</th><th>FATURADO</th><th>PENDENTE</th><th>AÇÕES</th></tr>
+                        </thead>
+                        <tbody id="historyTable"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- ABA BACKUP -->
+            <div id="tab-backup" class="tab-content">
+                <h1>Configurações e Backup</h1>
+                <div class="cards-grid">
+                    <div class="card">
+                        <h2 class="subheadline">Exportar</h2>
+                        <p style="font-size: 0.7rem; margin-bottom: 10px;">Baixe seus dados atuais.</p>
+                        <button onclick="exportCSV()" style="margin-bottom: 10px;">BAIXAR PLANILHA (.CSV)</button>
+                        <button onclick="backupJSON()">BACKUP COMPLETO (.JSON)</button>
+                    </div>
+                    <div class="card">
+                        <h2 class="subheadline">Importar Dados</h2>
+                        <p style="font-size: 0.7rem; margin-bottom: 10px;">Selecione o arquivo de Backup (.json) ou Planilha (.csv).</p>
+                        <input type="file" id="importFile" onchange="handleFileImport(event)" style="font-size: 0.8rem; border: 1px solid var(--gold-primary); padding: 15px; background: #1a1a1a; width: 100%;">
+                        <p id="importStatus" style="font-size: 0.7rem; color: var(--gold-primary); margin-top: 5px;"></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL PERFIL E AVALIAÇÃO -->
+    <div id="modal" onclick="if(event.target == this) closeModal()">
+        <div class="modal-box">
+            <h2 id="modalTitle" class="headline" style="margin-bottom:10px"></h2>
+            
+            <div class="tabs-modal">
+                <button class="tab-modal-btn active" id="btnTabInfo" onclick="switchModalTab('info')">INFORMAÇÕES</button>
+                <button class="tab-modal-btn" id="btnTabPag" onclick="switchModalTab('pag')">PAGAMENTOS</button>
+                <button class="tab-modal-btn" id="btnTabEval" onclick="switchModalTab('eval')">AVALIAÇÃO FÍSICA</button>
+            </div>
+
+            <div id="modalInfoContent" class="modal-tab-body"></div>
+            
+            <div id="modalPagContent" class="modal-tab-body" style="display:none">
+                <div class="card" style="background: #1a1a1a; border: 1px dashed var(--gold-primary); margin-bottom: 20px; text-align: center;">
+                    <h3 style="color: var(--gold-primary); font-size: 0.9rem; margin-bottom: 10px;">GERAR COBRANÇA PIX</h3>
+                    <button class="action-btn" onclick="generatePixCode()" style="width: 100%; padding: 12px;">GERAR QR CODE PIX</button>
+                    <div id="pixContainer" style="display:none; margin-top: 15px; background: white; padding: 15px; border-radius: 8px;">
+                        <div id="qrcode" style="display: flex; justify-content: center; margin-bottom: 10px;"></div>
+                        <p style="color: #333; font-size: 0.7rem; font-weight: bold; margin-bottom: 5px;">PIX COPIA E COLA:</p>
+                        <textarea id="pixPayload" readonly style="width: 100%; font-size: 10px; height: 60px; border: 1px solid #ccc; padding: 5px;"></textarea>
+                        <button class="action-btn" onclick="copyPix()" style="background: #333; margin-top: 5px; width: 100%; font-size: 11px;">COPIAR CÓDIGO</button>
+                        <button class="action-btn" onclick="quickConfirmPayment()" style="background: #00c853; width: 100%; font-weight: bold; margin-top: 10px;">CONFIRMAR RECEBIMENTO</button>
+                    </div>
+                </div>
+                <h3 class="subheadline" style="font-size: 0.9rem; margin-bottom:15px; color: var(--gold-primary);">Histórico de Pagamentos</h3>
+                <div id="paymentHistoryList"></div>
+            </div>
+
+            <div id="modalEvalContent" class="modal-tab-body" style="display:none">
+                <h3 class="subheadline" style="font-size: 0.9rem; margin-bottom:15px;">Nova Avaliação</h3>
+                <div class="eval-grid">
+                    <div><label>DATA</label><input type="date" id="ev_date"></div>
+                    <div><label>PESO (kg)</label><input type="number" id="ev_peso"></div>
+                    <div><label>BUSTO</label><input type="number" id="ev_busto"></div>
+                    <div><label>CINTURA</label><input type="number" id="ev_cintura"></div>
+                    <div><label>BARRIGA</label><input type="number" id="ev_barriga"></div>
+                    <div><label>QUADRIL</label><input type="number" id="ev_quadril"></div>
+                    <div><label>PERNA</label><input type="number" id="ev_perna"></div>
+                    <div><label>BRAÇO</label><input type="number" id="ev_braco"></div>
+                    <div><label>IMC</label><input id="ev_imc"></div>
+                    <div><label>% GORDURA</label><input id="ev_gordura"></div>
+                    <div><label>MASSA MAGRA</label><input id="ev_massa"></div>
+                    <div><label>GORD. VISCERAL</label><input id="ev_visceral"></div>
+                    <div><label>METAB. BASAL</label><input id="ev_basal"></div>
+                    <div><label>IDADE METAB.</label><input id="ev_idade"></div>
+                </div>
+                <button onclick="addEvaluation()" style="padding: 10px; margin-bottom: 20px;">SALVAR AVALIAÇÃO</button>
+                <div id="evalHistoryList"></div>
+            </div>
+
+            <button onclick="closeModal()" style="margin-top:20px; background: #333; color:#fff">FECHAR</button>
+        </div>
+    </div>
+
+    <script>
+        const USER = "admin";
+        let PASSWORD = localStorage.getItem("adminPassword") || "123456";
+        const BIN_ID = "666a0e69ad19ca34f878a87b";
+        const API_KEY = "$2a$10$v2i9mP1L9Y8D9N1O2E3R4A5O6E7I8R9A0G1F2I3T4N5E6S7S";
+
+        let students = JSON.parse(localStorage.getItem("students") || "[]");
+        let history = JSON.parse(localStorage.getItem("gymHistory") || "[]");
+
+        async function sync() {
+            try {
+                await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY },
+                    body: JSON.stringify({ students, history })
+                });
+            } catch (e) {}
+        }
+
+        async function load() {
+            try {
+                const res = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, { headers: { 'X-Master-Key': API_KEY } });
+                const data = await res.json();
+                if(data.record) {
+                    students = data.record.students || [];
+                    history = data.record.history || [];
+                    localStorage.setItem("students", JSON.stringify(students));
+                    localStorage.setItem("gymHistory", JSON.stringify(history));
+                    renderAll();
+                }
+            } catch (e) {}
+        }
+
+        function login() {
+            if(document.getElementById("user").value === USER && document.getElementById("pass").value === PASSWORD) {
+                document.getElementById("loginScreen").style.display = "none";
+                document.getElementById("dashboard").style.display = "block";
+                load();
+                renderAll();
+            } else { alert("Credenciais Inválidas"); }
+        }
+
+        function switchTab(id, el) {
+            document.querySelectorAll(".tab-content").forEach(t => t.classList.remove("active"));
+            document.querySelectorAll(".menu-item").forEach(m => m.classList.remove("active"));
+            document.getElementById(id).classList.add("active");
+            el.classList.add("active");
+        }
+
+        function renderAll() {
+            renderStudents();
+            renderStats();
+            renderHistory();
+        }
+
+        function renderStats() {
+            document.getElementById("totalAlunos").innerText = students.length;
+            const fAno = history.reduce((a, c) => a + parseFloat(c.faturado || 0), 0);
+            document.getElementById("receitaAno").innerText = "R$ " + fAno.toFixed(2);
+            
+            const hoje = new Date();
+            const rMes = students.filter(s => s.payment === "Pago").reduce((a, c) => a + parseFloat(c.value || 0), 0);
+            document.getElementById("receitaMes").innerText = "R$ " + rMes.toFixed(2);
+            
+            const vCount = students.filter(s => s.payment !== "Pago" && getStatus(s.due) === "Vencido").length;
+            document.getElementById("vencidos").innerText = vCount;
+        }
+
+        function getStatus(due) {
+            if (!due) return "Sem Data";
+            const today = new Date(); today.setHours(0,0,0,0);
+            const dueDate = new Date(due); dueDate.setHours(0,0,0,0);
+            return dueDate < today ? "Vencido" : "Em Dia";
+        }
+
+        function renderStudents() {
+            const container = document.getElementById("studentsTable");
+            const term = document.getElementById("search").value.toLowerCase();
+            const filter = document.getElementById("filter").value;
+            let filtered = [...students];
+
+            if(term) filtered = filtered.filter(s => s.name.toLowerCase().includes(term));
+            
+            const hoje = new Date(); hoje.setHours(0,0,0,0);
+            const amanha = new Date(hoje); amanha.setDate(hoje.getDate() + 1);
+
+            if(filter === "Em Dia") filtered = filtered.filter(s => s.payment === "Pago" || getStatus(s.due) === "Em Dia");
+            if(filter === "Vencido") filtered = filtered.filter(s => s.payment !== "Pago" && getStatus(s.due) === "Vencido");
+            if(filter === "ProxVencimento") filtered.sort((a,b) => new Date(a.due) - new Date(b.due));
+            if(filter === "DistVencimento") filtered.sort((a,b) => new Date(b.due) - new Date(a.due));
+
+            container.innerHTML = "";
+            filtered.forEach(s => {
+                const dDate = new Date(s.due); dDate.setHours(0,0,0,0);
+                const isVencido = s.payment !== "Pago" && getStatus(s.due) === "Vencido";
+                const venceAmanha = s.payment !== "Pago" && dDate.getTime() === amanha.getTime();
+                
+                let sHtml = s.payment === "Pago" ? '<span style="color:#00ff00">Pago</span>' : (isVencido ? '<span style="color:#ff1744">Vencido</span>' : (venceAmanha ? '<span style="color:#ffea00">Vence Amanhã</span>' : 'Em Dia'));
+                
+                const pixPayload = generatePixPayload("24382911000199", "GILVA SANTOS ALMEIDA", "PE DE SERRA", parseFloat(s.value).toFixed(2), "MENSALIDADE");
+                const msg = `Olá ${s.name}, tudo bem? Passando para lembrar que sua mensalidade na Aroeira G Fitness vence amanhã (${formatDate(s.due)}). O valor é R$ ${s.value}.\n\nSegue o PIX Copia e Cola:\n\n${pixPayload}\n\nObrigado!`;
+                const link = `https://wa.me/55${s.phone.replace(/\D/g,'')}?text=${encodeURIComponent(msg)}`;
+
+                container.innerHTML += `
+                    <tr>
+                        <td>${s.name}</td>
+                        <td>${s.plan}</td>
+                        <td>${formatDate(s.due)}</td>
+                        <td style="font-weight:bold">${sHtml}</td>
+                        <td>
+                            ${venceAmanha || isVencido ? `<a href="${link}" target="_blank" class="action-btn" style="background:#25d366; text-decoration: none; padding: 5px 10px; border-radius: 4px; font-weight: bold;">AVISAR</a>` : ''}
+                            <button class="action-btn" onclick="openProfile(${s.id})" style="background:var(--gold-dark)">PERFIL</button>
+                            <button class="action-btn" onclick="editStudent(${s.id})" style="background:#333">EDITAR</button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        function generatePixPayload(key, name, city, value, desc) {
+            function f(id, val) { return id + String(val.length).padStart(2, '0') + val; }
+            const gui = "br.gov.bcb.pix";
+            const merchantAccount = f("00", gui) + f("01", key) + f("02", desc.substring(0, 25));
+            let p = f("00", "01") + f("26", merchantAccount) + f("52", "0000") + f("53", "986") + f("54", value) + f("58", "BR") + f("59", name.substring(0, 25)) + f("60", city.substring(0, 15)) + f("62", f("05", "***"));
+            p += "6304";
+            return p + crc16(p);
+        }
+
+        function crc16(str) {
+            let crc = 0xFFFF;
+            for (let i = 0; i < str.length; i++) {
+                crc ^= str.charCodeAt(i) << 8;
+                for (let j = 0; j < 8; j++) {
+                    if ((crc & 0x8000) !== 0) crc = (crc << 1) ^ 0x1021;
+                    else crc <<= 1;
+                }
+            }
+            return (crc & 0xFFFF).toString(16).toUpperCase().padStart(4, '0');
+        }
+
+        function saveStudent() {
+            const id = document.getElementById("studentId").value;
+            const currentPayment = document.getElementById("payment").value;
+            const s = {
+                id: id ? parseInt(id) : Date.now(),
+                name: document.getElementById("name").value.toUpperCase(),
+                email: document.getElementById("email").value,
+                phone: document.getElementById("phone").value,
+                plan: document.getElementById("plan").value.toUpperCase(),
+                value: document.getElementById("value").value,
+                due: document.getElementById("due").value,
+                payment: currentPayment,
+                evaluations: id ? (students.find(x => x.id == id).evaluations || []) : [],
+                paymentHistory: id ? (students.find(x => x.id == id).paymentHistory || []) : []
+            };
+            if(id) { students[students.findIndex(x => x.id == id)] = s; } else { students.push(s); }
+            localStorage.setItem("students", JSON.stringify(students));
+            sync(); clearForm(); renderAll(); alert("Salvo!");
+        }
+
+        function editStudent(id) {
+            const s = students.find(x => x.id == id);
+            document.getElementById("studentId").value = s.id;
+            document.getElementById("name").value = s.name;
+            document.getElementById("email").value = s.email;
+            document.getElementById("phone").value = s.phone;
+            document.getElementById("due").value = s.due;
+            document.getElementById("value").value = s.value;
+            document.getElementById("plan").value = s.plan;
+            document.getElementById("payment").value = s.payment;
+            document.getElementById("btnCancel").style.display = "inline-block";
+            document.getElementById("formTitle").innerText = "Editar Aluno";
+            window.scrollTo(0,0);
+        }
+
+        function clearForm() {
+            document.getElementById("studentId").value = "";
+            ["name", "email", "phone", "plan", "value", "due"].forEach(id => document.getElementById(id).value = "");
+            document.getElementById("btnCancel").style.display = "none";
+            document.getElementById("formTitle").innerText = "Novo Cadastro";
+        }
+
+        let activeStudentId = null;
+        function openProfile(id) {
+            activeStudentId = id;
+            const s = students.find(x => x.id == id);
+            document.getElementById("modalTitle").innerText = s.name;
+            document.getElementById("modal").style.display = "flex";
+            switchModalTab('info');
+        }
+
+        function switchModalTab(t) {
+            document.querySelectorAll(".modal-tab-body").forEach(b => b.style.display = "none");
+            document.querySelectorAll(".tab-modal-btn").forEach(btn => btn.classList.remove("active"));
+            if(t === 'info') { document.getElementById("modalInfoContent").style.display = "block"; renderInfo(); }
+            if(t === 'pag') { document.getElementById("modalPagContent").style.display = "block"; renderPag(); }
+            if(t === 'eval') { document.getElementById("modalEvalContent").style.display = "block"; renderEval(); }
+            document.getElementById("btnTab"+t.charAt(0).toUpperCase()+t.slice(1)).classList.add("active");
+        }
+
+        function renderInfo() {
+            const s = students.find(x => x.id == activeStudentId);
+            document.getElementById("modalInfoContent").innerHTML = `
+                <div class="card" style="background:#111">
+                    <p><b>E-MAIL:</b> ${s.email || '-'}</p>
+                    <p><b>TELEFONE:</b> ${s.phone || '-'}</p>
+                    <p><b>PLANO:</b> ${s.plan}</p>
+                    <p><b>VALOR:</b> R$ ${s.value}</p>
+                    <p><b>VENCIMENTO:</b> ${formatDate(s.due)}</p>
+                </div>
+            `;
+        }
+
+        function renderPag() {
+            const s = students.find(x => x.id == activeStudentId);
+            const list = document.getElementById("paymentHistoryList");
+            list.innerHTML = (s.paymentHistory || []).map(p => `<div class="history-eval-card"><b>${p.month}</b> - R$ ${p.value}</div>`).join("") || "Nenhum histórico.";
+            document.getElementById("pixContainer").style.display = "none";
+        }
+
+        function renderEval() {
+            const s = students.find(x => x.id == activeStudentId);
+            const list = document.getElementById("evalHistoryList");
+            list.innerHTML = (s.evaluations || []).map(e => `
+                <div class="history-eval-card">
+                    <h4>Data: ${formatDate(e.date)}</h4>
+                    <div class="eval-data-flex">
+                        <div class="eval-item"><b>Peso:</b> ${e.peso}kg</div>
+                        <div class="eval-item"><b>IMC:</b> ${e.imc}</div>
+                    </div>
+                </div>
+            `).join("") || "Nenhuma avaliação.";
+        }
+
+        function addEvaluation() {
+            const sIdx = students.findIndex(x => x.id === activeStudentId);
+            const ev = {
+                date: document.getElementById("ev_date").value,
+                peso: document.getElementById("ev_peso").value,
+                busto: document.getElementById("ev_busto").value,
+                cintura: document.getElementById("ev_cintura").value,
+                barriga: document.getElementById("ev_barriga").value,
+                quadril: document.getElementById("ev_quadril").value,
+                perna: document.getElementById("ev_perna").value,
+                braco: document.getElementById("ev_braco").value,
+                imc: document.getElementById("ev_imc").value,
+                gordura: document.getElementById("ev_gordura").value,
+                massa: document.getElementById("ev_massa").value,
+                visceral: document.getElementById("ev_visceral").value,
+                basal: document.getElementById("ev_basal").value,
+                idade: document.getElementById("ev_idade").value
+            };
+            if(!students[sIdx].evaluations) students[sIdx].evaluations = [];
+            students[sIdx].evaluations.unshift(ev);
+            save(); alert("Salvo!"); renderEval();
+        }
+
+        function generatePixCode() {
+            const s = students.find(x => x.id == activeStudentId);
+            const payload = generatePixPayload("24382911000199", "GILVA SANTOS ALMEIDA", "PE DE SERRA", parseFloat(s.value).toFixed(2), "MENSALIDADE");
+            document.getElementById("pixPayload").value = payload;
+            document.getElementById("qrcode").innerHTML = "";
+            new QRCode(document.getElementById("qrcode"), { text: payload, width: 150, height: 150 });
+            document.getElementById("pixContainer").style.display = "block";
+        }
+
+        function copyPix() {
+            document.getElementById("pixPayload").select(); document.execCommand("copy"); alert("Copiado!");
+        }
+
+        function quickConfirmPayment() {
+            const s = students.find(x => x.id == activeStudentId);
+            const monthLabel = new Date().toLocaleString('pt-BR', { month: 'long', year: 'numeric' }).toUpperCase();
+            if(!s.paymentHistory) s.paymentHistory = [];
+            s.paymentHistory.push({ month: monthLabel, value: s.value, date: new Date().toISOString().split('T')[0] });
+            s.payment = "Pago";
+            save(); alert("Confirmado!"); closeModal();
+        }
+
+        function save() {
+            localStorage.setItem("students", JSON.stringify(students));
+            localStorage.setItem("gymHistory", JSON.stringify(history));
+            sync();
+            renderAll();
+        }
+
+        function turnMonth() {
+            const label = prompt("Confirmar fechamento do mês (Ex: JUNHO 2026):");
+            if(!label) return;
+            let fat = 0;
+            students.forEach(s => {
+                if(s.payment === "Pago") {
+                    fat += parseFloat(s.value);
+                    if(!s.paymentHistory) s.paymentHistory = [];
+                    s.paymentHistory.push({ month: label.toUpperCase(), value: s.value, date: new Date().toISOString().split('T')[0] });
+                }
+                s.payment = "Pendente";
+                if(s.due) {
+                    let d = new Date(s.due); d.setMonth(d.getMonth() + 1);
+                    s.due = d.toISOString().split('T')[0];
+                }
+            });
+            history.push({ label: label.toUpperCase(), totalAlunos: students.length, faturado: fat, pendente: 0 });
+            save();
+        }
+
+        function renderHistory() {
+            document.getElementById("historyTable").innerHTML = history.slice().reverse().map(h => `<tr><td>${h.label}</td><td>${h.totalAlunos}</td><td>R$ ${parseFloat(h.faturado).toFixed(2)}</td><td>-</td><td>-</td></tr>`).join("");
+        }
+
+        function exportCSV() {
+            let csv = "\uFEFFNome;Email;Telefone;Plano;Valor;Vencimento;Pagamento\n";
+            students.forEach(s => csv += `${s.name};${s.email};${s.phone};${s.plan};${s.value};${s.due};${s.payment}\n`);
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+            const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = "aroeira_alunos.csv"; a.click();
+        }
+
+        function backupJSON() {
+            const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([JSON.stringify({students, history})], {type: "application/json"})); a.download = "aroeira_backup.json"; a.click();
+        }
+
+        function handleFileImport(e) {
+            const file = e.target.files[0];
+            const reader = new FileReader();
+            reader.onload = function(evt) {
+                const data = JSON.parse(evt.target.result);
+                students = data.students || []; history = data.history || [];
+                save(); alert("Importado!");
+            };
+            reader.readAsText(file);
+        }
+
+        function closeModal() { document.getElementById("modal").style.display = "none"; activeStudentId = null; }
+        function formatDate(d) { if(!d) return "-"; let p = d.split("-"); return `${p[2]}/${p[1]}/${p[0]}`; }
+        function changePassword() { const n = prompt("Nova senha:"); if(n) { PASSWORD = n; localStorage.setItem("adminPassword", n); } }
+    </script>
+</body>
+</html>
