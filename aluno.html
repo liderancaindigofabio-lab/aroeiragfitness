@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portal do Aluno - Aroeira G Fitness</title>
+    <link href="https://fonts.googleapis.com/css2?family=Anton&family=Cinzel:wght@700&family=Montserrat:wght@400;600&family=Oswald:wght@700&display=swap" rel="stylesheet">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <style>
+        :root {
+            --vh: 1vh;
+            --gold-primary: #D4A74A;
+            --gold-dark: #A87A22;
+            --gold-light: #F0D27A;
+            --black-main: #070707;
+            --black-textured: #111111;
+            --white-ice: #F3F3F3;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background-color: var(--black-main);
+            color: var(--white-ice);
+            font-family: 'Montserrat', sans-serif;
+            min-height: 100vh;
+        }
+        .container { padding: 20px; max-width: 500px; margin: 0 auto; }
+        .header { text-align: center; padding: 40px 0; }
+        .header img { width: 120px; }
+        h1 { font-family: 'Anton', sans-serif; color: var(--gold-primary); text-transform: uppercase; margin-top: 10px; }
+        
+        .card {
+            background: var(--black-textured);
+            border: 1px solid var(--gold-dark);
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+        }
+        .gold-text { color: var(--gold-primary); font-family: 'Oswald', sans-serif; }
+        
+        input {
+            width: 100%; padding: 15px; margin-bottom: 15px;
+            background: #1a1a1a; border: 1px solid var(--gold-dark);
+            color: #fff; font-family: 'Montserrat', sans-serif;
+        }
+        button {
+            width: 100%; padding: 15px;
+            background: linear-gradient(90deg, var(--gold-dark), var(--gold-primary));
+            border: none; color: #000; font-family: 'Oswald', sans-serif;
+            font-weight: bold; text-transform: uppercase; cursor: pointer;
+        }
+        
+        #login-screen { display: block; }
+        #portal-screen { display: none; }
+        
+        .profile-header { display: flex; align-items: center; gap: 15px; margin-bottom: 20px; }
+        .avatar { width: 60px; height: 60px; border-radius: 50%; border: 2px solid var(--gold-primary); background: #333; display: flex; justify-content: center; align-items: center; font-family: 'Anton', sans-serif; font-size: 1.5rem; }
+        
+        .status-badge { display: inline-block; padding: 5px 10px; border-radius: 20px; font-size: 0.7rem; font-weight: bold; margin-top: 5px; }
+        .status-em-dia { background: #1b5e20; color: #fff; }
+        .status-vencido { background: #b71c1c; color: #fff; }
+        
+        .treino-item { border-bottom: 1px solid #333; padding: 10px 0; }
+        .treino-item:last-child { border: none; }
+    </style>
+</head>
+<body>
+
+    <div class="container" id="login-screen">
+        <div class="header">
+            <img src="https://storage.googleapis.com/zapia_shared_files_prod/shares/logo.png" alt="Logo">
+            <h1>Portal do Aluno</h1>
+        </div>
+        <div class="card">
+            <label class="gold-text">CPF OU TELEFONE</label>
+            <input type="text" id="login-id" placeholder="Digite seus dados">
+            <button onclick="login()">ACESSAR PORTAL</button>
+        </div>
+    </div>
+
+    <div class="container" id="portal-screen">
+        <div class="header">
+            <img src="https://storage.googleapis.com/zapia_shared_files_prod/shares/logo.png" alt="Logo" style="width: 80px;">
+        </div>
+
+        <div class="profile-header">
+            <div class="avatar" id="student-avatar">A</div>
+            <div>
+                <h2 id="student-name" style="font-family: 'Oswald', sans-serif; text-transform: uppercase;">ALUNO</h2>
+                <div id="student-status" class="status-badge">PENDENTE</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3 class="gold-text">MEU PLANO</h3>
+            <p id="student-plan" style="margin-top: 5px;">Plano Mensal</p>
+            <p id="student-due" style="font-size: 0.9rem; color: #aaa;">Vencimento: --/--/----</p>
+        </div>
+
+        <div class="card">
+            <h3 class="gold-text">TREINO DO DIA</h3>
+            <div id="treino-content" style="margin-top: 10px;">
+                <p style="color: #666; font-style: italic;">Nenhum treino cadastrado hoje.</p>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3 class="gold-text">PAGAMENTO</h3>
+            <p style="font-size: 0.8rem; margin-bottom: 10px;">Já realizou o pagamento? Informe abaixo:</p>
+            <button onclick="reportPayment()" style="background: #333; color: var(--gold-primary); border: 1px solid var(--gold-primary);">INFORMAR PAGAMENTO</button>
+        </div>
+        
+        <button onclick="logout()" style="background: transparent; color: #666; margin-top: 20px;">SAIR</button>
+    </div>
+
+    <script>
+        const BIN_ID = "666a0e69ad19ca34f878a87b";
+        const API_KEY = "$2a$10$v2i9mP1L9Y8D9N1O2E3R4A5O6E7I8R9A0G1F2I3T4N5E6S7S";
+
+        let allStudents = [];
+        let currentStudent = null;
+
+        async function loadData() {
+            try {
+                const res = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, { headers: { 'X-Master-Key': API_KEY } });
+                const data = await res.json();
+                allStudents = data.record.students || [];
+            } catch (e) {
+                console.error("Erro ao carregar dados");
+            }
+        }
+
+        async function login() {
+            const input = document.getElementById("login-id").value.trim();
+            if(!input) return alert("Digite seu CPF ou Telefone");
+
+            await loadData();
+            
+            // Busca simples (CPF ou Telefone - limpando caracteres)
+            const cleanInput = input.replace(/\D/g, "");
+            currentStudent = allStudents.find(s => {
+                const cleanPhone = (s.phone || "").replace(/\D/g, "");
+                const cleanEmail = (s.email || ""); // No caso de e-mail como login
+                return cleanPhone === cleanInput || s.name.includes(input.toUpperCase());
+            });
+
+            if (currentStudent) {
+                showPortal();
+            } else {
+                alert("Aluno não encontrado. Verifique seus dados ou fale com a recepção.");
+            }
+        }
+
+        function showPortal() {
+            document.getElementById("login-screen").style.display = "none";
+            document.getElementById("portal-screen").style.display = "block";
+            
+            document.getElementById("student-name").innerText = currentStudent.name;
+            document.getElementById("student-avatar").innerText = currentStudent.name.charAt(0);
+            document.getElementById("student-plan").innerText = currentStudent.plan;
+            document.getElementById("student-due").innerText = "Vencimento: " + formatDate(currentStudent.due);
+            
+            const status = getStatus(currentStudent.due);
+            const badge = document.getElementById("student-status");
+            badge.innerText = status.toUpperCase();
+            badge.className = "status-badge " + (status === "Em Dia" ? "status-em-dia" : "status-vencido");
+        }
+
+        function getStatus(dueDateStr) {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const dueDate = new Date(dueDateStr + "T00:00:00");
+            return dueDate < today ? "Vencido" : "Em Dia";
+        }
+
+        function formatDate(dateStr) {
+            if(!dateStr) return "--/--/----";
+            const [y, m, d] = dateStr.split("-");
+            return `${d}/${m}/${y}`;
+        }
+
+        function reportPayment() {
+            const tel = "5516997902168"; // WhatsApp da Academia
+            const msg = encodeURIComponent(`Olá! Sou o aluno ${currentStudent.name} e gostaria de informar que realizei o pagamento da mensalidade.`);
+            window.open(`https://wa.me/${tel}?text=${msg}`, "_blank");
+        }
+
+        function logout() {
+            location.reload();
+        }
+
+        loadData();
+    </script>
+</body>
+</html>
