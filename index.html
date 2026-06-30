@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#d4af37">
+<title>Aroeira G Fitness - Gestão de Alunos</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#0a0a0a;color:#f5f5f5;min-height:100vh;padding:8px;font-size:14px;line-height:1.4}
+  .header{background:linear-gradient(135deg,#1a1a1a,#0a0a0a);border:2px solid #d4af37;border-radius:12px;padding:12px;margin-bottom:8px;text-align:center}
+  .header h1{color:#d4af37;font-size:20px;letter-spacing:1px}
+  .header .sub{color:#888;font-size:11px;margin-top:4px}
+  .stats-bar{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-bottom:8px}
+  .stat-box{background:#1a1a1a;border:1px solid #333;border-radius:6px;padding:6px 2px;text-align:center}
+  .stat-box .num{font-size:18px;font-weight:700;display:block}
+  .stat-box .label{font-size:9px;color:#888;text-transform:uppercase}
+  .stat-emdia .num{color:#00c853}
+  .stat-pendente .num{color:#ffb300}
+  .stat-vencido .num{color:#ff1744}
+  .stat-atrasado .num{color:#b71c1c}
+  .stat-semdata .num{color:#888}
+  .login-overlay{position:fixed;inset:0;background:rgba(0,0,0,.95);display:flex;align-items:center;justify-content:center;z-index:9999;padding:20px}
+  .login-overlay.hidden{display:none}
+  .login-box{background:#1a1a1a;border:2px solid #d4af37;border-radius:12px;padding:24px;max-width:320px;width:100%;text-align:center}
+  .login-box h2{color:#d4af37;margin-bottom:16px}
+  .login-box input{width:100%;padding:12px;background:#0a0a0a;border:1px solid #d4af37;border-radius:6px;color:#f5f5f5;font-size:14px;margin-bottom:12px}
+  .login-box button{width:100%;padding:12px;background:#d4af37;color:#0a0a0a;border:none;border-radius:6px;font-size:14px;font-weight:700;cursor:pointer}
+  .login-box .err{color:#ff1744;font-size:12px;margin-top:8px;min-height:16px}
+  .toolbar{display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap}
+  .btn{padding:8px 12px;background:#d4af37;color:#0a0a0a;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;flex:1;min-width:80px}
+  .btn:active{transform:scale(.97)}
+  .btn-sec{background:transparent;color:#d4af37;border:1px solid #d4af37}
+  .search-box{width:100%;padding:10px;background:#1a1a1a;border:1px solid #d4af37;border-radius:6px;color:#f5f5f5;font-size:14px;margin-bottom:8px}
+  .filters{display:flex;gap:4px;margin-bottom:8px;overflow-x:auto;padding-bottom:4px}
+  .filter-btn{padding:6px 10px;background:#1a1a1a;color:#888;border:1px solid #333;border-radius:12px;font-size:11px;cursor:pointer;white-space:nowrap}
+  .filter-btn.active{background:#d4af37;color:#0a0a0a;border-color:#d4af37}
+  .student-list{display:flex;flex-direction:column;gap:4px;margin-bottom:12px;max-height:55vh;overflow-y:auto}
+  .student-card{background:#1a1a1a;border:1px solid #2a2a2a;border-radius:8px;padding:8px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .student-card .info{flex:1;min-width:0}
+  .student-card .name{font-weight:600;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .student-card .meta{font-size:10px;color:#888;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .badge{font-size:9px;padding:3px 6px;border-radius:4px;font-weight:700;white-space:nowrap}
+  .bg-emdia{background:rgba(0,200,83,.15);color:#00c853}
+  .bg-pendente{background:rgba(255,179,0,.15);color:#ffb300}
+  .bg-vencido{background:rgba(255,23,68,.15);color:#ff1744}
+  .bg-atrasado{background:rgba(183,28,28,.25);color:#ff5252}
+  .bg-semdata{background:rgba(255,255,255,.1);color:#888}
+  .form-section{background:#1a1a1a;border:1px solid #d4af37;border-radius:8px;padding:12px;margin-bottom:12px}
+  .form-section h3{color:#d4af37;font-size:14px;margin-bottom:8px}
+  .form-row{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px}
+  .form-row.full{grid-template-columns:1fr}
+  .form-row input,.form-row select{width:100%;padding:8px;background:#0a0a0a;border:1px solid #333;border-radius:4px;color:#f5f5f5;font-size:12px}
+  .form-row input:focus,.form-row select:focus{outline:none;border-color:#d4af37}
+  .form-actions{display:flex;gap:6px;margin-top:8px}
+  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#1a1a1a;border:1px solid #d4af37;color:#d4af37;padding:10px 20px;border-radius:6px;font-size:13px;z-index:999;display:none;max-width:90%;text-align:center}
+  .toast.show{display:block;animation:slideUp .3s}
+  .toast.error{border-color:#ff1744;color:#ff1744}
+  @keyframes slideUp{from{opacity:0;transform:translate(-50%,20px)}to{opacity:1;transform:translate(-50%,0)}}
+  .sync-info{text-align:center;color:#666;font-size:10px;padding:4px}
+  .section-title{color:#d4af37;font-size:13px;font-weight:600;margin:8px 0 4px;display:flex;justify-content:space-between;align-items:center}
+  .section-title .count{background:#d4af37;color:#0a0a0a;padding:2px 8px;border-radius:10px;font-size:11px}
+  @media (min-width:768px){
+    body{max-width:900px;margin:0 auto;padding:16px;font-size:15px}
+    .header h1{font-size:28px}
+    .stats-bar{grid-template-columns:repeat(5,1fr);gap:8px}
+    .stat-box .num{font-size:24px}
+    .student-list{max-height:60vh}
+  }
+</style>
+</head>
+<body>
+
+<div id="loginOverlay" class="login-overlay">
+  <form class="login-box" onsubmit="return doLogin(event)">
+    <h2>🏋️ Aroeira G Fitness</h2>
+    <p style="color:#888;font-size:12px;margin-bottom:16px">Gestão de Alunos v9</p>
+    <input type="text" id="loginUser" placeholder="Usuário" autocomplete="username" required>
+    <input type="password" id="loginPass" placeholder="Senha" autocomplete="current-password" required>
+    <button type="submit">ENTRAR</button>
+    <div class="err" id="loginErr"></div>
+  </form>
+</div>
+
+<div id="app" class="hidden">
+  <div class="header">
+    <h1>🏋️ AROEIRA G FITNESS</h1>
+    <div class="sub">Gestão de Alunos • v9 • 30/06/2026</div>
+  </div>
+
+  <div class="stats-bar">
+    <div class="stat-box stat-emdia"><span class="num" id="cntEmDia">0</span><span class="label">Em Dia</span></div>
+    <div class="stat-box stat-pendente"><span class="num" id="cntPendente">0</span><span class="label">Pendente</span></div>
+    <div class="stat-box stat-vencido"><span class="num" id="cntVencido">0</span><span class="label">Vencido</span></div>
+    <div class="stat-box stat-atrasado"><span class="num" id="cntAtrasado">0</span><span class="label">Atrasado</span></div>
+    <div class="stat-box stat-semdata"><span class="num" id="cntSemData">0</span><span class="label">Sem Data</span></div>
+  </div>
+
+  <div class="toolbar">
+    <button class="btn" onclick="showAddForm()">➕ NOVO</button>
+    <button class="btn btn-sec" onclick="downloadJSON()">💾 BAIXAR</button>
+    <button class="btn btn-sec" onclick="copyJSON()">📋 COPIAR</button>
+  </div>
+
+  <input type="text" class="search-box" id="searchBox" placeholder="🔍 buscar por nome, email ou telefone..." oninput="renderList()">
+
+  <div class="filters" id="filters"></div>
+
+  <div class="section-title">
+    <span>👥 Alunos</span>
+    <span class="count" id="visibleCount">0</span>
+  </div>
+  <div class="student-list" id="studentList"></div>
+
+  <div id="formSection" class="form-section hidden">
+    <h3>➕ Cadastrar Novo Aluno</h3>
+    <div class="form-row full"><input type="text" id="fNome" placeholder="Nome completo"></div>
+    <div class="form-row"><input type="email" id="fEmail" placeholder="Email"><input type="tel" id="fTel" placeholder="Telefone (XX) XXXXX-XXXX"></div>
+    <div class="form-row"><select id="fPlano"><option value="">Selecione o plano</option><option>PLANO MENSAL</option><option>PLANO 1° MÊS</option><option>PLANO ANUAL</option><option>DIÁRIA</option><option>CRÉDITO 15 DIAS</option><option>CREDITO 30 DIAS</option><option>SEM PLANO</option></select><input type="number" id="fValor" placeholder="Valor (R$)" step="0.01"></div>
+    <div class="form-row full"><input type="date" id="fVenc"></div>
+    <div class="form-actions">
+      <button class="btn" onclick="salvarAluno()">💾 SALVAR</button>
+      <button class="btn btn-sec" onclick="document.getElementById('formSection').classList.add('hidden')">CANCELAR</button>
+    </div>
+  </div>
+
+  <div class="sync-info" id="syncInfo">Carregando dados...</div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+// ============================
+// DADOS EMBUTIDOS (FALLBACK)
+// ============================
+const EMBEDDED_DATA = {"students": [{"id": 1, "name": "ALBINO VITORIO LIMA", "email": "albinolimaop00@gmail.com", "phone": "(75) 9835-80857", "plan": "PLANO MENSAL", "value": 69.9, "due": "2026-07-13", "payment": "Em Dia", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 2, "name": "ANA GILZA ROSA DA SILVA", "email": "gilza@gmail.com", "phone": "(75) 9914-85206", "plan": "PLANO MENSAL", "value": 69.9, "due": "2026-05-30", "payment": "Atrasado", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 3, "name": "ANA JÚLIA SANTOS OLIVEIRA", "email": "roselylimadossantos.7@gmail.com", "phone": "(75) 9881-96487", "plan": "PLANO MENSAL", "value": 69.9, "due": "2026-05-16", "payment": "Atrasado", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 4, "name": "ANA LUIZA SANTOS SILVA", "email": "santoslimaanna773@gmail.com", "phone": "(75) 9836-02371", "plan": "CRÉDITO 15 DIAS", "value": 0.0, "due": "2026-04-16", "payment": "Atrasado", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 5, "name": "ANECI DA CRUS SANTOS MACHADO", "email": "anecy595@gmail.com", "phone": "(75) 9835-01876", "plan": "PLANO 1° MÊS", "value": 59.9, "due": "2026-04-11", "payment": "Atrasado", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 6, "name": "BEATRIZ DE JESUS LIMA", "email": "beatrizjesuszandjd09@gmail.com", "phone": "(75) 9981-67246", "plan": "PLANO 1° MÊS", "value": 59.9, "due": "2026-05-30", "payment": "Atrasado", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 7, "name": "BETÂNIA SOUZA DA SILVA", "email": "betaniasouzadasilva9@gmail.com", "phone": "(75) 9821-85178", "plan": "PLANO MENSAL", "value": 69.9, "due": "2026-06-13", "payment": "Vencido", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 8, "name": "BRENO SILVA DE SOUZA", "email": "brenosilvasouza1020@gmail.com", "phone": "(75) 9970-75725", "plan": "PLANO MENSAL", "value": 69.9, "due": "2026-07-04", "payment": "Em Dia", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 9, "name": "CARLA DOS ANJOS CARNEIRO", "email": "carlaanjoscarneiro@gmail.com", "phone": "(75) 9823-76750", "plan": "PLANO 1° MÊS", "value": 59.9, "due": "2026-04-13", "payment": "Atrasado", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 10, "name": "CARLOS ANDRÉ LIMA DOS SANTOS", "email": "santosandre8868@gmail.com", "phone": "(75) 9997-88933", "plan": "PLANO MENSAL", "value": 69.9, "due": "2026-05-13", "payment": "Atrasado", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 11, "name": "CELESTE DA SILVA CARNEIRO", "email": "celestecarneiro85@yahoo.com.br", "phone": "(75) 9814-27505", "plan": "PLANO 1° MÊS", "value": 59.9, "due": "2026-06-06", "payment": "Vencido", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 12, "name": "CLAUDIANE DE SOUZA MELO", "email": "claudianemsouza@outlook.com", "phone": "(75) 9920-68864", "plan": "PLANO MENSAL", "value": 69.9, "due": "2026-06-14", "payment": "Vencido", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 13, "name": "CLEITON DA SILVA CARNERO", "email": "ceiton@gmail.com", "phone": "(75) 9998-97699", "plan": "PLANO 1° MÊS", "value": 59.9, "due": "2026-04-16", "payment": "Atrasado", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 14, "name": "DAIANE FREITAS DOS SANTOS", "email": "freitasdaiane361@gmail.com", "phone": "(75) 9824-13915", "plan": "PLANO 1° MÊS", "value": 69.9, "due": "2026-07-16", "payment": "Em Dia", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 15, "name": "EDIELSON ALMEIDA DA LUZ", "email": "negaovilmar92@gmail.com", "phone": "(75) 9833-89006", "plan": "PLANO MENSAL", "value": 69.9, "due": "2026-06-30", "payment": "Em Dia", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 16, "name": "EDNA CARNEIRO DE SOUZA", "email": "ednacarneiro53@gmail.com", "phone": "(75) 9997-54868", "plan": "PLANO 1° MÊS", "value": 59.9, "due": "2026-07-01", "payment": "Pendente", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 17, "name": "EDNA CARNEIRO DE SOUZA (CONSTRUÇÃO)", "email": "nadjacarneiroo.agro@gmail.com", "phone": "(75) 9815-73035", "plan": "PLANO MENSAL", "value": 69.9, "due": "2026-07-16", "payment": "Em Dia", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 18, "name": "EDSON CARNEIRO SOUZA", "email": "edson@gmail.com", "phone": "(75) 9999-30953", "plan": "PLANO MENSAL", "value": 69.9, "due": "2026-06-16", "payment": "Vencido", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 19, "name": "ELBERT DA SILVA CARNEIRO", "email": "elbertcarneiro2023@icloud.com", "phone": "(16) 9942-89121", "plan": "PLANO 1° MÊS", "value": 59.9, "due": "2026-05-13", "payment": "Atrasado", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 20, "name": "ELIANA PINHEIRO DA SILVA", "email": "eliena@gmail.com", "phone": "(75) 9914-96173", "plan": "PLANO MENSAL", "value": 69.9, "due": "2026-06-22", "payment": "Vencido", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 21, "name": "ELIANE DE JESUS OLIVEIRA", "email": "eo6493027@gmail.com", "phone": "(75) 9811-60175", "plan": "SEM PLANO", "value": 0.0, "due": null, "payment": "Sem Data", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 22, "name": "ELICELMA OLIVEIRA CARNEIRO", "email": "elicelma29carneiro@gmail.com", "phone": "(75) 9837-11159", "plan": "PLANO MENSAL", "value": 69.9, "due": "2026-07-13", "payment": "Em Dia", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 23, "name": "ELIELZA BACELAR DA SILVA", "email": "elielzabacelardsilva@gmail.com", "phone": "(75) 9982-49985", "plan": "PLANO MENSAL", "value": 69.9, "due": "2026-07-13", "payment": "Em Dia", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 24, "name": "ELISA OLIVEIRA CARNEIRO (MÃE DE SELMA)", "email": "elisa@gmail.com", "phone": "(75) 7576-78789", "plan": "PLANO MENSAL", "value": 69.9, "due": "2026-07-08", "payment": "Em Dia", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 25, "name": "EMIDIANO DA SILVA", "email": "emiiano@gmail.com", "phone": "(75) 9912-81958", "plan": "PLANO MENSAL", "value": 69.9, "due": "2026-05-16", "payment": "Atrasado", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 26, "name": "ESTER AZEVEDO DA SILVA", "email": "e9013181@gmail.com", "phone": "(75) 9910-45615", "plan": "PLANO MENSAL", "value": 69.9, "due": "2026-07-01", "payment": "Pendente", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 27, "name": "EVERSON SANTOS DE SANTANA CARVALHO", "email": "everson@gmail.com", "phone": "(75) 9695-85858", "plan": "PLANO MENSAL", "value": 69.9, "due": "2026-05-15", "payment": "Atrasado", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 28, "name": "FABRÍCIA SOARES CRUZ", "email": "fabriciciacruz@gmail.com", "phone": "(75) 9988-74799", "plan": "SEM PLANO", "value": 0.0, "due": null, "payment": "Sem Data", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 29, "name": "FLÁVIO SOUSA DE SANTANA", "email": "flaviosousahs@gmail.com", "phone": "(75) 9818-88941", "plan": "PLANO MENSAL", "value": 69.9, "due": "2026-06-26", "payment": "Vencido", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 30, "name": "FRANCISCA FREITAS SOUZA", "email": "tedte@gnsil.com", "phone": "(75) 9929-56099", "plan": "PLANO MENSAL", "value": 60.0, "due": "2026-07-13", "payment": "Em Dia", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 31, "name": "GENICLEIA SOUZA DA SILVA", "email": "genicleiasouzadasilvasouza@gmail.com", "phone": "(75) 9910-57202", "plan": "PLANO 1° MÊS", "value": 59.9, "due": "2026-06-12", "payment": "Vencido", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 32, "name": "GEOVANIA SANTOS JESUS", "email": "geovaniasantoss@icloud.com", "phone": "(75) 9917-50152", "plan": "CRÉDITO 15 DIAS", "value": 0.0, "due": "2026-06-03", "payment": "Vencido", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 33, "name": "GESSICA DA SILVA OLIVEIRA ARAÚJO", "email": "gessica@gmail.com", "phone": "(75) 9892-6315", "plan": "PLANO MENSAL", "value": 69.9, "due": "2026-06-20", "payment": "Vencido", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 34, "name": "GIGI", "email": "luanuber0505@gmail.com", "phone": "(75) 9883-87272", "plan": "PLANO MENSAL", "value": 69.9, "due": "2026-07-16", "payment": "Em Dia", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 35, "name": "GILVANEY CARNEIRO MASCARENHAS", "email": "gilvaneicarneiro02@gmail.com", "phone": "(75) 9910-98065", "plan": "PLANO MENSAL", "value": 69.9, "due": "2026-07-11", "payment": "Em Dia", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 36, "name": "GLEIDE RAIANY SILVA DE JESUS", "email": "raianysilvadejesus58@gmail.com", "phone": "(75) 9836-78404", "plan": "PLANO 1° MÊS", "value": 59.9, "due": "2026-06-30", "payment": "Em Dia", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 37, "name": "GRASIELE SANTOS DA CRUZ", "email": "santosgrasiele436@gmail.com", "phone": "(75) 9981-84979", "plan": "PLANO 1° MÊS", "value": 59.9, "due": "2026-05-01", "payment": "Atrasado", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 38, "name": "GUILHERME DE SOUZA", "email": "guilhermecarneiroxb78@gmail.com", "phone": "(75) 9989-31130", "plan": "PLANO MENSAL", "value": 69.9, "due": "2026-05-14", "payment": "Atrasado", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 39, "name": "GUSTAVO SILVA CARNEIRO", "email": "gustavodasilvacarneiro1@gmail.com", "phone": "(75) 9820-16638", "plan": "PLANO 1° MÊS", "value": 59.9, "due": "2026-04-12", "payment": "Atrasado", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 40, "name": "HADASSA SILVA CARNEIRO", "email": "hadassa@gmail.com", "phone": "(75) 9984-48239", "plan": "CRÉDITO 15 DIAS", "value": 0.0, "due": "2026-04-29", "payment": "Atrasado", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 41, "name": "HELOÍSA DE SOUZA SILVA", "email": "heloisasousa559@gmail.com", "phone": "(75) 9992-73742", "plan": "PLANO MENSAL", "value": 69.9, "due": "2026-05-22", "payment": "Atrasado", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 42, "name": "IANDRA DE JESUS OLIVEIRA", "email": "iandradejesusoliveira727@gmail.com", "phone": "(75) 9828-25689", "plan": "PLANO 1° MÊS", "value": 59.9, "due": "2026-06-14", "payment": "Vencido", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 43, "name": "IRINEIDE SANTOS OLIVEIRAIRINEIDE", "email": "irineide34001", "phone": "(75) 9919-84617", "plan": "PLANO ANUAL", "value": 44.5, "due": "2027-03-12", "payment": "Em Dia", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 44, "name": "ISABELE DA SILVA MIRANDA", "email": "is1116193@gmail.com", "phone": "(75) 9835-58221", "plan": "PLANO MENSAL", "value": 69.9, "due": "2026-07-14", "payment": "Em Dia", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 45, "name": "IUZA FREITAS DOS SANTOS", "email": "iuzadossantos@gmail.com", "phone": "(85) 9937-37838", "plan": "SEM PLANO", "value": 0.0, "due": null, "payment": "Sem Data", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 46, "name": "JACKSON CARNEIRO DE LIMA", "email": "jl6978197@gmail.com", "phone": "(75) 9828-30107", "plan": "SEM PLANO", "value": 0.0, "due": null, "payment": "Sem Data", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 47, "name": "JADE SANTANA PURIFICAÇÃO", "email": "jadesantana210@gmail.com", "phone": "(75) 9981-73621", "plan": "PLANO MENSAL", "value": 69.9, "due": "2026-05-20", "payment": "Atrasado", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 48, "name": "JANEIDE JESUS DOS SANTOS", "email": "js3359179@gmail.com", "phone": "(75) 9970-70568", "plan": "SEM PLANO", "value": 0.0, "due": null, "payment": "Sem Data", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 49, "name": "JAQUELINE OLIVEIRA BASTO", "email": "jakelineoliveirabastos58@gmail.com", "phone": "(75) 9997-54868", "plan": "PLANO 1° MÊS", "value": 59.9, "due": "2026-05-23", "payment": "Atrasado", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 50, "name": "JOANICE DA SILVA OLIVEIRA", "email": "joanice@gmail.com", "phone": "(75) 0292-91299", "plan": "PLANO MENSAL", "value": 69.9, "due": "2026-06-15", "payment": "Vencido", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 51, "name": "JOSE DE JESUS", "email": "josedejesus@gmail.com", "phone": "(75) 9832-08789", "plan": "PLANO MENSAL", "value": 69.9, "due": "2026-05-13", "payment": "Atrasado", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 52, "name": "JOSE MARCOS DE ALMEIDA DOS SANTOS", "email": "josemarcosalmeida16072002@gmail.com", "phone": "(75) 9823-78553", "plan": "PLANO MENSAL", "value": 69.9, "due": "2026-05-27", "payment": "Atrasado", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 53, "name": "JOSÉ RONALDO DE SOUZA RIOS", "email": "ronaldo85rios@gmail.com", "phone": "(75) 9834-47840", "plan": "PLANO MENSAL", "value": 69.9, "due": "2026-07-13", "payment": "Em Dia", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 54, "name": "JOÃO VICTOR DOS SANTOS CARNEIRO", "email": "santosvt2016@gmaail.com", "phone": "(75) 9870-82053", "plan": "PLANO 1° MÊS", "value": 0.0, "due": "2026-04-13", "payment": "Atrasado", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 55, "name": "JUCINELMA", "email": "jucimendes1409gmail.com", "phone": "(16) 9819-31708", "plan": "PLANO MENSAL", "value": 69.9, "due": "2026-07-15", "payment": "Em Dia", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 56, "name": "JULIANA DE LIMA SANTOS SILVA", "email": "julybodesantos@gmail.com", "phone": "(75) 9833-73173", "plan": "PLANO MENSAL", "value": 69.9, "due": "2026-07-13", "payment": "Em Dia", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 57, "name": "JURACI SILVA SANTOS", "email": "juraci@gmail.com", "phone": "(75) 9686-87677", "plan": "PLANO 1° MÊS", "value": 59.9, "due": "2026-05-13", "payment": "Atrasado", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 58, "name": "KAIQUE SAMPAIO DE SOUZA", "email": "kaiquesampaio536@gmail.com", "phone": "(16) 9973-18141", "plan": "PLANO 1° MÊS", "value": 59.9, "due": "2026-04-17", "payment": "Atrasado", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 59, "name": "KARINA CARNEIRO", "email": "carneirofigueredo57@gmail.com", "phone": "(75) 9811-76881", "plan": "PLANO MENSAL", "value": 69.9, "due": "2026-05-14", "payment": "Atrasado", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 60, "name": "KEDNA CARNEIRO SANTOS", "email": "kednasantos09@icloud.com", "phone": "(75) 9992-35267", "plan": "PLANO MENSAL", "value": 69.9, "due": "2026-07-15", "payment": "Em Dia", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 61, "name": "LAIS SOUZA SOARES", "email": "lais1993@gmail.com", "phone": "(75) 9992-01062", "plan": "PLANO MENSAL", "value": 69.9, "due": "2026-07-15", "payment": "Em Dia", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 62, "name": "LAURA PEREIRA DOS SANTOS", "email": "bely2660@gmail.com", "phone": "(75) 9994-26074", "plan": "PLANO MENSAL", "value": 69.9, "due": "2026-06-15", "payment": "Vencido", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 63, "name": "LEIDIANA SOUZA CARNEIRO", "email": "leidianasouza082@gmail.com", "phone": "(75) 9828-16676", "plan": "PLANO MENSAL", "value": 69.9, "due": "2026-07-14", "payment": "Em Dia", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 64, "name": "LEONARDO OLIVEIRA ALMEIDA", "email": "nealmeidaalmeida701@gmail.com", "phone": "(75) 9970-58713", "plan": "PLANO MENSAL", "value": 69.9, "due": "2026-05-13", "payment": "Atrasado", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 65, "name": "LIANA CRISTINA DOS SANTOS RIOS", "email": "lianariosoliveira@gmail.com", "phone": "(75) 9813-28873", "plan": "PLANO MENSAL", "value": 69.9, "due": "2026-05-15", "payment": "Atrasado", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 66, "name": "LINDINALVA RODRIGUES DOS SANTOS", "email": "nalvar901@gmail.com", "phone": "(75) 9929-82122", "plan": "SEM PLANO", "value": 0.0, "due": null, "payment": "Sem Data", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 67, "name": "LORRANY SOUSA DE OLIVEIRA", "email": "lol.oliver7543@gmail.com", "phone": "(75) 9989-36843", "plan": "CRÉDITO 15 DIAS", "value": 0.0, "due": "2026-04-22", "payment": "Atrasado", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 68, "name": "LUCINHA", "email": "lucinhapinheiro617@gmail.com", "phone": "(75) 9828-76802", "plan": "PLANO MENSAL", "value": 69.9, "due": "2026-05-07", "payment": "Atrasado", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 69, "name": "LUIZ CARLOS SILVA DE SOUZA", "email": "luizcarlos@gmail.com", "phone": "(75) 9816-60396", "plan": "PLANO MENSAL", "value": 69.9, "due": "2026-05-24", "payment": "Atrasado", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 70, "name": "MAIANE DA SILVA DOS SANTOS", "email": "mayanesilva296@gmail.com", "phone": "(75) 9996-96944", "plan": "PLANO MENSAL", "value": 69.9, "due": "2026-05-14", "payment": "Atrasado", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 71, "name": "MARCELA DE JESUS LIMA", "email": "marceladejesuslima423@gmail.com", "phone": "(73) 9984-69942", "plan": "PLANO MENSAL", "value": 69.9, "due": "2026-06-13", "payment": "Vencido", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 72, "name": "MARIA DIVANI SANTOS SILVA", "email": "dhivanisantos7@gmail.com", "phone": "(75) 9820-81803", "plan": "PLANO MENSAL", "value": 69.9, "due": "2026-07-13", "payment": "Em Dia", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 73, "name": "MARIA FABRÍCIO RIOS REIS", "email": "fraicia@gmail.com", "phone": "(75) 9832-22498", "plan": "PLANO MENSAL", "value": 69.9, "due": "2026-06-09", "payment": "Vencido", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 74, "name": "MARIA GEZUINA JESUS DE LIMA", "email": "mariagezuina02@gmail.com", "phone": "(75) 9833-70868", "plan": "PLANO MENSAL", "value": 69.9, "due": "2026-06-13", "payment": "Vencido", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 75, "name": "MARIA ISABEL DE SOUZA LIMA", "email": "souzabel259@gmail.com", "phone": "(75) 9819-86387", "plan": "PLANO 1° MÊS", "value": 59.9, "due": "2026-04-30", "payment": "Atrasado", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 76, "name": "MARIA ROSALIA SANTANA SANTOS", "email": "mariaro@gmail.com", "phone": "(75) 9914-85206", "plan": "PLANO MENSAL", "value": 69.9, "due": "2026-05-16", "payment": "Atrasado", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 77, "name": "MARIA ROSENDO SANTANA", "email": "mariarosendo@gmail.com", "phone": "(75) 9834-70103", "plan": "PLANO MENSAL", "value": 69.9, "due": "2026-05-15", "payment": "Atrasado", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 78, "name": "MARINEIDE DA CONCEIÇÃO SANTOS", "email": "l45432690@gmail.com", "phone": "(75) 9988-32371", "plan": "PLANO MENSAL", "value": 69.9, "due": "2026-06-26", "payment": "Vencido", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 79, "name": "MARINES SANTANA DOS SANTOS", "email": "thyna4271@gmail.com", "phone": "(71) 9939-57159", "plan": "SEM PLANO", "value": 0.0, "due": null, "payment": "Sem Data", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 80, "name": "MARIO SANTOS SOARES JUNIOR", "email": "mario@gmail.com", "phone": "(75) 9991-09516", "plan": "PLANO MENSAL", "value": 69.9, "due": "2026-07-04", "payment": "Em Dia", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 81, "name": "MARIZA MIRANDA DA SILVA.", "email": "naotememaol@gmail.com", "phone": "(75) 9828-96927", "plan": "PLANO MENSAL", "value": 69.9, "due": "2026-07-13", "payment": "Em Dia", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 82, "name": "MARLENE DE JESUS (FULOZINHA)", "email": "fulozinha@gmail.com", "phone": "(75) 9914-85206", "plan": "PLANO MENSAL", "value": 69.9, "due": "2026-05-15", "payment": "Atrasado", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 83, "name": "MARLUCE DOS ANJOS MIRANDA", "email": "marlucemiranda@icloud.com", "phone": "(77) 9993-70030", "plan": "PLANO MENSAL", "value": 69.9, "due": "2026-06-16", "payment": "Vencido", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 84, "name": "MIRIAN PAIVA SANTANA", "email": "miriampaiva@gmail.com", "phone": "(75) 9836-83208", "plan": "DIÁRIA", "value": 14.99, "due": "2026-03-15", "payment": "Atrasado", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 85, "name": "MÔNICA OLIVEIRA SOUZA", "email": "monicaoliveirasouza711@gmail.com", "phone": "(75) 9985-59298", "plan": "PLANO MENSAL", "value": 69.9, "due": "2026-07-01", "payment": "Pendente", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 86, "name": "NADJA CARNEIRO DE SOUZA", "email": "nadjacarneiro.agro@gmail.com", "phone": "(75) 9816-34475", "plan": "PLANO MENSAL", "value": 69.9, "due": "2026-05-14", "payment": "Atrasado", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 87, "name": "NATALICE LIMA DE JESUS", "email": "natalicelima1999@gmail.com", "phone": "(75) 9983-23119", "plan": "PLANO MENSAL", "value": 69.9, "due": "2026-06-25", "payment": "Vencido", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 88, "name": "NEULA CARLA ALMEIDA PEREIRA", "email": "neulacarla@gmail.com", "phone": "(75) 9828-04707", "plan": "PLANO MENSAL", "value": 69.9, "due": "2026-06-16", "payment": "Vencido", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 89, "name": "NILZA SILVA NASCIMENTO", "email": "nilzasilvanascimento@gmail.com", "phone": "(75) 9982-82822", "plan": "PLANO 1° MÊS", "value": 59.9, "due": "2026-04-13", "payment": "Atrasado", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 90, "name": "NORMAEL SILVA DE SOUZA", "email": "normael.souza@gmail.com", "phone": "(75) 9919-27697", "plan": "PLANO MENSAL", "value": 69.9, "due": "2026-06-17", "payment": "Vencido", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 91, "name": "RAIRAN DOS SANTOS SANTANA", "email": "rairan@gmail.com", "phone": "(75) 9831-86839", "plan": "PLANO 1° MÊS", "value": 59.9, "due": "2026-05-07", "payment": "Atrasado", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 92, "name": "RENATA SANTANA", "email": "renatasantana@gmail.com", "phone": "(75) 9913-91530", "plan": "PLANO MENSAL", "value": 69.9, "due": "2026-07-02", "payment": "Em Dia", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 93, "name": "RONALD ERIK DE SOUZA CARNEIRO", "email": "ronalderick378@gmail.com", "phone": "(75) 9817-17403", "plan": "PLANO 1° MÊS", "value": 59.9, "due": "2026-04-12", "payment": "Atrasado", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 94, "name": "ROSANEIDE DE SOUZA RIOS", "email": "rosaneiderios6@gmail.com", "phone": "(75) 9928-71995", "plan": "PLANO ANUAL", "value": 44.5, "due": "2027-03-12", "payment": "Em Dia", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 95, "name": "ROSELI LIMA DOS SANTOS", "email": "santosvt216@gmail.com", "phone": "(75) 9881-96487", "plan": "PLANO 1° MÊS", "value": 0.0, "due": "2026-04-13", "payment": "Atrasado", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 96, "name": "ROSENI SOUZA DOS REIS", "email": "sroseni593@gmail.com", "phone": "(75) 9980-05776", "plan": "CREDITO 30 DIAS", "value": 0.0, "due": "2026-07-01", "payment": "Pendente", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 97, "name": "ROSILEIDE DA SILVA", "email": "rosileide26silva@gmail.com", "phone": "(75) 9824-17330", "plan": "PLANO MENSAL", "value": 69.9, "due": "2026-05-13", "payment": "Atrasado", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 98, "name": "ROSINEIDE SILVA CARNEIRO", "email": "rs3001331@gmail.com", "phone": "(79) 9812-47494", "plan": "SEM PLANO", "value": 0.0, "due": null, "payment": "Sem Data", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 99, "name": "RUBIA FABIANA SOUSA DE OLIVEIRA", "email": "biana_rubia@hotmail.com", "phone": "(75) 9999-78248", "plan": "PLANO MENSAL", "value": 69.9, "due": "2026-07-06", "payment": "Em Dia", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 100, "name": "RUDIERE DA HORA BASTOS", "email": "rudieredahorabastos@gmail.com", "phone": "(75) 9836-94799", "plan": "PLANO 1° MÊS", "value": 59.9, "due": "2026-05-20", "payment": "Atrasado", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 101, "name": "RUTINEIA SILVA DE JESUS", "email": "rutineia@gmsil.com", "phone": "(75) 9826-12796", "plan": "PLANO MENSAL", "value": 69.9, "due": "2026-07-11", "payment": "Em Dia", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 102, "name": "SARA SOUSA DE OLIVEIRA", "email": "sarasousadeoliveira4@gmail.com", "phone": "(75) 9970-86439", "plan": "PLANO MENSAL", "value": 69.9, "due": "2026-05-14", "payment": "Atrasado", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 103, "name": "SERGIO DE JESUS SANTOSS", "email": "sergios.santos78@gmail.com", "phone": "(75) 9811-40495", "plan": "PLANO 1° MÊS", "value": 59.9, "due": "2026-04-12", "payment": "Atrasado", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 104, "name": "SILMARA SILVA SOUZA BASTOS", "email": "silvasilvasil37@gmail.com", "phone": "(75) 9817-93737", "plan": "PLANO MENSAL", "value": 69.9, "due": "2026-07-13", "payment": "Em Dia", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 105, "name": "SILVACLEIDE DE LIMA SANTOS", "email": "silvacleidelima4@gmail.com", "phone": "(75) 9829-09304", "plan": "PLANO 1° MÊS", "value": 0.0, "due": "2026-04-24", "payment": "Atrasado", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 106, "name": "SILVANI GONÇALVES DE SOUZA", "email": "silvanigoncalves50@gmail.com", "phone": "(75) 9833-86129", "plan": "PLANO 1° MÊS", "value": 59.9, "due": "2026-04-12", "payment": "Atrasado", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 107, "name": "SORRAIA CARNEIRO SANTANA", "email": "soraia.cs2014@gmail.com", "phone": "(75) 9915-45233", "plan": "PLANO MENSAL", "value": 60.0, "due": "2026-07-01", "payment": "Pendente", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 108, "name": "TAMILE SANTOS DE SOUZA", "email": "tamilysouza1999@gmail.com", "phone": "(34) 9912-83831", "plan": "PLANO MENSAL", "value": 69.9, "due": "2026-07-13", "payment": "Em Dia", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 109, "name": "TAMIRES CARNEIRO FREITAS", "email": "tamiresfreitas433@gmail.com", "phone": "(75) 9833-92357", "plan": "PLANO MENSAL", "value": 69.9, "due": "2026-07-20", "payment": "Em Dia", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 110, "name": "TARCIANE SILVA CARNEIRO", "email": "silvatarciane413@gmail.com", "phone": "(75) 9870-41118", "plan": "PLANO 1° MÊS", "value": 59.9, "due": "2026-04-13", "payment": "Atrasado", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 111, "name": "TATIANA CARNEIRO DA SILVA", "email": "tatianasilva147pds@gmail.com", "phone": "(75) 9832-24278", "plan": "PLANO MENSAL", "value": 69.9, "due": "2026-06-13", "payment": "Vencido", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 112, "name": "THIAGO FERREIRA DOS SANTOS", "email": "thigo@gmail.com", "phone": "(75) 9821-48309", "plan": "PLANO MENSAL", "value": 69.9, "due": "2026-06-23", "payment": "Vencido", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 113, "name": "TÂNIA LÍVIA SANTOS DE SOUZA", "email": "tanialiviasantosdesouza@gmail.com", "phone": "(75) 9917-43329", "plan": "PLANO 1° MÊS", "value": 59.9, "due": "2026-06-13", "payment": "Vencido", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 114, "name": "VANESSA DE AZEVEDO SILVA", "email": "v4393616@gmail.com", "phone": "(75) 9911-06162", "plan": "PLANO MENSAL", "value": 69.9, "due": "2026-07-05", "payment": "Em Dia", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 115, "name": "VANESSA PINHEIRO DE CERQUEIRA", "email": "wanessapinheiro659@gmail.com", "phone": "(75) 9822-34808", "plan": "PLANO 1° MÊS", "value": 59.9, "due": "2026-05-23", "payment": "Atrasado", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 116, "name": "VILMÁRIA MORADOR", "email": "moradorvilmaria@gmail.com", "phone": "(75) 9833-34613", "plan": "PLANO MENSAL", "value": 69.9, "due": "2026-05-15", "payment": "Atrasado", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 117, "name": "WÉRICA OLIVEIRA SANTOS", "email": "wericaoliveira17@gmail.com", "phone": "(75) 9836-88188", "plan": "PLANO MENSAL", "value": 69.9, "due": "2026-05-28", "payment": "Atrasado", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 118, "name": "SÂMARA SOUZA DE JESUS", "email": "samara@gmail.com", "phone": "(75) 9811-13101", "plan": "PLANO MENSAL", "value": 69.9, "due": "2026-05-18", "payment": "Atrasado", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 119, "name": "SAMUEL SAMPAIO DE SOUZA", "email": "samuelsampaio@gmail.com", "phone": "(75) 9831-72782", "plan": "PLANO MENSAL", "value": 69.9, "due": "2026-05-23", "payment": "Atrasado", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 120, "name": "SANDRA MARIA DOS SANTOS", "email": "sandramaria@gmail.com", "phone": "(75) 9817-20038", "plan": "PLANO MENSAL", "value": 69.9, "due": "2026-05-18", "payment": "Atrasado", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 121, "name": "SANTANA SANTOS DE JESUS", "email": "santana@gmail.com", "phone": "(75) 9810-74591", "plan": "PLANO MENSAL", "value": 69.9, "due": "2026-05-23", "payment": "Atrasado", "paymentHistory": [], "evaluations": [], "gymHistory": []}, {"id": 122, "name": "WILSON BARBOSA SANTOS", "email": "wilsonbarbosa@gmail.com", "phone": "(75) 9836-84880", "plan": "PLANO MENSAL", "value": 69.9, "due": "2026-05-25", "payment": "Atrasado", "paymentHistory": [], "evaluations": [], "gymHistory": []}], "history": [], "lastUpdate": "2026-06-30T16:39:24.598601-03:00"};
+
+// ============================
+// ESTADO
+// ============================
+let students = [];
+let history = [];
+let lastUpdate = null;
+let currentFilter = 'todos';
+let searchQuery = '';
+
+// ============================
+// LOGIN
+// ============================
+function doLogin(e){
+  e.preventDefault();
+  const u = document.getElementById('loginUser').value;
+  const p = document.getElementById('loginPass').value;
+  if (u === 'admin' && p === '123456') {
+    document.getElementById('loginOverlay').classList.add('hidden');
+    document.getElementById('app').classList.remove('hidden');
+    carregarDados();
+  } else {
+    document.getElementById('loginErr').textContent = 'Usuário ou senha inválidos';
+  }
+  return false;
+}
+
+// ============================
+// CARREGAR DADOS (GitHub > Fallback)
+// ============================
+async function carregarDados(){
+  showInfo('Sincronizando com a nuvem...');
+  let cloudOk = false;
+
+  try {
+    const url = 'https://raw.githubusercontent.com/liderancaindigofabio-lab/aroeiragfitness/main/aroeira_data.json?t=' + Date.now();
+    const resp = await fetch(url, {cache: 'no-store'});
+    if (resp.ok) {
+      const data = await resp.json();
+      if (Array.isArray(data.students) && data.students.length > 0) {
+        students = data.students;
+        history = data.history || [];
+        lastUpdate = data.lastUpdate;
+        cloudOk = true;
+        showInfo('✓ ' + students.length + ' alunos carregados da nuvem');
+      }
+    }
+  } catch(e) {
+    console.warn('Falha ao buscar da nuvem:', e);
+  }
+
+  if (!cloudOk) {
+    // Fallback: usa os dados embutidos na página
+    students = EMBEDDED_DATA.students;
+    history = EMBEDDED_DATA.history || [];
+    lastUpdate = EMBEDDED_DATA.lastUpdate;
+    showInfo('⚠ Usando dados locais (offline) — ' + students.length + ' alunos');
+  }
+
+  updateStats();
+  renderFilters();
+  renderList();
+}
+
+function showInfo(msg){
+  document.getElementById('syncInfo').textContent = msg;
+}
+
+// ============================
+// STATUS
+// ============================
+function getStatus(due){
+  if (!due) return {text:'Sem Data', cls:'bg-semdata'};
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  const d = new Date(due);
+  d.setHours(0,0,0,0);
+  const diff = Math.floor((today - d) / 86400000);
+  if (diff <= -2) return {text:'Em Dia', cls:'bg-emdia'};
+  if (diff === -1) return {text:'Pendente', cls:'bg-pendente'};
+  if (diff >= 1 && diff < 30) return {text:'Vencido', cls:'bg-vencido'};
+  if (diff >= 30) return {text:'Atrasado', cls:'bg-atrasado'};
+  return {text:'Em Dia', cls:'bg-emdia'};
+}
+
+function updateStats(){
+  const c = {EmDia:0, Pendente:0, Vencido:0, Atrasado:0, SemData:0};
+  students.forEach(s => {
+    const st = getStatus(s.due);
+    if (st.text === 'Em Dia') c.EmDia++;
+    else if (st.text === 'Pendente') c.Pendente++;
+    else if (st.text === 'Vencido') c.Vencido++;
+    else if (st.text === 'Atrasado') c.Atrasado++;
+    else if (st.text === 'Sem Data') c.SemData++;
+  });
+  document.getElementById('cntEmDia').textContent = c.EmDia;
+  document.getElementById('cntPendente').textContent = c.Pendente;
+  document.getElementById('cntVencido').textContent = c.Vencido;
+  document.getElementById('cntAtrasado').textContent = c.Atrasado;
+  document.getElementById('cntSemData').textContent = c.SemData;
+}
+
+// ============================
+// FILTROS
+// ============================
+function renderFilters(){
+  const filters = [
+    {v:'todos',l:'Todos'},
+    {v:'Em Dia',l:'🟢 Em Dia'},
+    {v:'Pendente',l:'🟡 Pendente'},
+    {v:'Vencido',l:'🔴 Vencido'},
+    {v:'Atrasado',l:'🔴 Atrasado'},
+    {v:'Sem Data',l:'⚪ Sem Data'}
+  ];
+  const el = document.getElementById('filters');
+  el.innerHTML = filters.map(f =>
+    `<button class="filter-btn ${f.v===currentFilter?'active':''}" onclick="setFilter('${f.v}')">${f.l}</button>`
+  ).join('');
+}
+
+function setFilter(f){
+  currentFilter = f;
+  renderFilters();
+  renderList();
+}
+
+// ============================
+// LISTA
+// ============================
+function renderList(){
+  const q = searchQuery.toLowerCase();
+  const filtered = students.filter(s => {
+    if (currentFilter !== 'todos' && getStatus(s.due).text !== currentFilter) return false;
+    if (q && !(s.name.toLowerCase().includes(q) || (s.email||'').toLowerCase().includes(q) || (s.phone||'').toLowerCase().includes(q))) return false;
+    return true;
+  }).sort((a,b) => a.name.localeCompare(b.name, 'pt-BR'));
+
+  document.getElementById('visibleCount').textContent = filtered.length;
+  const el = document.getElementById('studentList');
+
+  if (filtered.length === 0) {
+    el.innerHTML = '<div style="text-align:center;color:#666;padding:20px">Nenhum aluno encontrado</div>';
+    return;
+  }
+
+  el.innerHTML = filtered.map(s => {
+    const st = getStatus(s.due);
+    const dueFmt = s.due ? s.due.split('-').reverse().join('/') : '—';
+    return `
+      <div class="student-card">
+        <div class="info">
+          <div class="name">${escapeHtml(s.name)}</div>
+          <div class="meta">${escapeHtml(s.plan || '—')} • ${dueFmt} • R$ ${(s.value||0).toFixed(2)}</div>
+        </div>
+        <span class="badge ${st.cls}">${st.text}</span>
+      </div>
+    `;
+  }).join('');
+}
+
+function escapeHtml(t){
+  if (!t) return '';
+  return String(t).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+
+// ============================
+// BUSCA
+// ============================
+document.addEventListener('DOMContentLoaded', () => {
+  const sb = document.getElementById('searchBox');
+  if (sb) sb.addEventListener('input', e => { searchQuery = e.target.value; renderList(); });
+});
+
+// ============================
+// FORMULÁRIO
+// ============================
+function showAddForm(){
+  document.getElementById('formSection').classList.remove('hidden');
+  document.getElementById('formSection').scrollIntoView({behavior:'smooth'});
+}
+
+function salvarAluno(){
+  const nome = document.getElementById('fNome').value.trim();
+  if (!nome) { toast('Nome é obrigatório', true); return; }
+  const novo = {
+    id: students.length ? Math.max(...students.map(s => s.id||0)) + 1 : 1,
+    name: nome,
+    email: document.getElementById('fEmail').value.trim(),
+    phone: document.getElementById('fTel').value.trim(),
+    plan: document.getElementById('fPlano').value,
+    value: parseFloat(document.getElementById('fValor').value) || 0,
+    due: document.getElementById('fVenc').value || null,
+    payment: getStatus(document.getElementById('fVenc').value || null).text,
+    paymentHistory: [],
+    evaluations: [],
+    gymHistory: []
+  };
+  students.push(novo);
+  updateStats();
+  renderList();
+  toast('✓ Aluno cadastrado! (salve manualmente pelo GitHub)');
+  document.getElementById('fNome').value = '';
+  document.getElementById('fEmail').value = '';
+  document.getElementById('fTel').value = '';
+  document.getElementById('fPlano').value = '';
+  document.getElementById('fValor').value = '';
+  document.getElementById('fVenc').value = '';
+}
+
+// ============================
+// EXPORTAR
+// ============================
+function downloadJSON(){
+  const data = {students, history, lastUpdate: new Date().toISOString()};
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'aroeira_data.json';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  toast('✓ Arquivo baixado! Mande pelo WhatsApp');
+}
+
+async function copyJSON(){
+  const data = {students, history, lastUpdate: new Date().toISOString()};
+  const text = JSON.stringify(data, null, 2);
+  try {
+    await navigator.clipboard.writeText(text);
+    toast('✓ JSON copiado!');
+  } catch(e) {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    toast('✓ JSON copiado!');
+  }
+}
+
+// ============================
+// TOAST
+// ============================
+function toast(msg, error){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.toggle('error', !!error);
+  t.classList.add('show');
+  clearTimeout(window._toastT);
+  window._toastT = setTimeout(() => t.classList.remove('show'), 3500);
+}
+</script>
+</body>
+</html>
