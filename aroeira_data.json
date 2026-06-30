@@ -69,14 +69,15 @@
     },
     {
       "id": 1781246118928,
-      "name": "BETÃÂNIA SOUZA DA SILVA",
+      "name": "BETANIA SOUZA DA SILVA",
       "email": "betaniasouzadasilva9@gmail.com",
       "phone": "(75) 9821-85178",
       "plan": "PLANO MENSAL",
       "value": "69.90",
       "due": "2026-06-13",
       "payment": "Pendente",
-      "evaluations": []
+      "evaluations": [],
+      "paymentHistory": []
     },
     {
       "id": 1781246118929,
@@ -1346,5 +1347,5 @@
   ],
   "history": [],
   "password": "123456",
-  "lastUpdate": "2026-06-30T18:21:36.788Z"
+  "lastUpdate": "2026-06-30T18:21:52.173Z"
 }
