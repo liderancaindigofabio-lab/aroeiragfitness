@@ -211,12 +211,9 @@
             </div>
 
             <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--gold-dark);">
-                <div id="syncStatus" class="sync-status sync-info" style="font-size: 0.7rem; text-align: center; margin-bottom: 10px; color: var(--gray-metal);">☁️ Aguardando...</div>
-                <button onclick="syncToCloud()" class="btn-sync btn-sync-up" style="width: 100%; margin-bottom: 8px; background: linear-gradient(135deg, #1a1a1a, #2a2a2a); color: var(--gold-primary); border: 1px solid var(--gold-primary); padding: 10px; font-size: 0.75rem; cursor: pointer; font-family: 'Oswald', sans-serif; text-transform: uppercase; letter-spacing: 1px;">
-                    ☁️ Salvar na Nuvem
-                </button>
-                <button onclick="syncFromCloud()" class="btn-sync btn-sync-down" style="width: 100%; background: linear-gradient(135deg, #1a1a1a, #2a2a2a); color: var(--gold-primary); border: 1px solid var(--gold-primary); padding: 10px; font-size: 0.75rem; cursor: pointer; font-family: 'Oswald', sans-serif; text-transform: uppercase; letter-spacing: 1px;">
-                    📥 Baixar da Nuvem
+                <div id="syncStatus" class="sync-status sync-info" style="font-size: 0.7rem; text-align: center; margin-bottom: 10px; color: var(--gray-metal);">☁️ Auto-sync ativo</div>
+                <button onclick="manualSyncNow()" class="btn-sync" style="width: 100%; background: transparent; color: var(--gray-metal); border: 1px solid #444; padding: 6px; font-size: 0.65rem; cursor: pointer; font-family: 'Oswald', sans-serif; text-transform: uppercase; letter-spacing: 1px;">
+                    🔄 Sincronizar Agora
                 </button>
             </div>
         </div>
@@ -514,7 +511,43 @@ async function githubSaveFile(content, sha) {
     return await res.json();
 }
 
-async function syncToCloud() {
+async function manualSyncNow() {
+            // botão manual: baixa + salva
+            try {
+                if (!sessionStorage.getItem('gymSyncKey')) {
+                    // pede a senha uma vez
+                    const senha = prompt('🔐 Digite sua senha do admin para sincronizar:');
+                    if (!senha) return;
+                    sessionStorage.setItem('gymSyncKey', senha);
+                }
+                await silentSyncFromCloud();
+                if (!isSyncing) {
+                    setTimeout(() => syncToCloud(), 1000);
+                }
+            } catch (e) {
+                console.error(e);
+                setSyncStatus('❌ ' + e.message, 'err');
+            }
+        }
+
+        async function manualSyncNow() {
+            try {
+                if (!sessionStorage.getItem('gymSyncKey')) {
+                    const senha = prompt('Digite sua senha do admin para sincronizar:');
+                    if (!senha) return;
+                    sessionStorage.setItem('gymSyncKey', senha);
+                }
+                await silentSyncFromCloud();
+                if (!isSyncing) {
+                    setTimeout(() => syncToCloud(), 1000);
+                }
+            } catch (e) {
+                console.error(e);
+                setSyncStatus('Erro: ' + e.message, 'err');
+            }
+        }
+
+        async function syncToCloud() {
     if (isSyncing) return;
     isSyncing = true;
     setSyncStatus('Sincronizando...', 'syncing');
@@ -675,7 +708,12 @@ if (lastSync) {
                 refreshAll();
                 // AUTO-LOAD: busca dados da nuvem automaticamente após login
                 setTimeout(() => {
-                    silentSyncFromCloud();
+                    // se nunca ativou auto-sync, mostra instrução clara
+                    if (!sessionStorage.getItem('gymSyncKey')) {
+                        setSyncStatus('Toque em "Sincronizar Agora" para ativar', 'info');
+                    } else {
+                        silentSyncFromCloud();
+                    }
                 }, 800);
                 // Inicia verificação periódica (a cada 30s)
                 setTimeout(() => startAutoSyncWatcher(), 2000);
@@ -692,7 +730,7 @@ if (lastSync) {
                 // verifica se já tem a senha liberada
                 if (!sessionStorage.getItem('gymSyncKey')) {
                     // não tem senha ainda, pede uma vez
-                    setSyncStatus('🔐 Clique em "Baixar da Nuvem" uma vez para liberar auto-sync', 'info');
+                    setSyncStatus('Toque em Sincronizar Agora para ativar', 'info');
                     return;
                 }
                 isSyncing = true;
