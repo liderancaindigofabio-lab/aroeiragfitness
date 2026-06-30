@@ -627,7 +627,7 @@ if (lastSync) {
         // DADOS
         // ============================
         // Versão do schema - se mudar, limpa o localStorage antigo
-        const DB_VERSION = "v6-force-clear-2026-06-30-1620";
+        const DB_VERSION = "v7-always-reload-from-cloud-2026-06-30-1625";
         if (localStorage.getItem("dbVersion") !== DB_VERSION) {
             localStorage.removeItem("students");
             localStorage.removeItem("gymHistory");
@@ -685,29 +685,25 @@ if (lastSync) {
                     return;
                 }
                 const data = JSON.parse(content);
-                // checa se é mais novo que o que tá no localStorage
-                const localUpdate = localStorage.getItem('lastCloudUpdate') || '0';
-                if (data.lastUpdate && data.lastUpdate > localUpdate) {
-                    // nuvem é mais nova, baixa
-                    if (data.students) {
-                        students = data.students;
-                        localStorage.setItem('students', JSON.stringify(students));
-                    }
-                    if (data.history) {
-                        history = data.history;
-                        localStorage.setItem('gymHistory', JSON.stringify(history));
-                    }
-                    if (data.password) {
-                        PASSWORD = data.password;
-                        localStorage.setItem('adminPassword', PASSWORD);
-                    }
-                    localStorage.setItem('lastCloudUpdate', data.lastUpdate);
-                    lastSyncTime = new Date();
-                    setSyncStatus(`✓ Atualizado da nuvem ${formatTime(lastSyncTime)}`, 'ok');
-                    refreshAll();
-                } else {
-                    setSyncStatus(`✓ Em dia (${formatTime(lastSyncTime || new Date())})`, 'ok');
+                // SEMPRE baixa o que tá na nuvem (forçar reload)
+                if (data.students) {
+                    students = data.students;
+                    localStorage.setItem('students', JSON.stringify(students));
                 }
+                if (data.history) {
+                    history = data.history;
+                    localStorage.setItem('gymHistory', JSON.stringify(history));
+                }
+                if (data.password) {
+                    PASSWORD = data.password;
+                    localStorage.setItem('adminPassword', PASSWORD);
+                }
+                if (data.lastUpdate) {
+                    localStorage.setItem('lastCloudUpdate', data.lastUpdate);
+                }
+                lastSyncTime = new Date();
+                setSyncStatus(`✓ ${data.students ? data.students.length : 0} alunos carregados da nuvem`, 'ok');
+                refreshAll();
             } catch (e) {
                 console.error('Silent sync erro:', e);
                 setSyncStatus('❌ Erro ao sincronizar', 'err');
