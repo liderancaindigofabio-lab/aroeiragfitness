@@ -253,7 +253,29 @@
             <!-- ABA ALUNOS -->
             <div id="tab-alunos" class="tab-content">
                 <h1>Gestão de Alunos</h1>
-                <div class="card" style="margin-bottom: 30px; cursor:default">
+                <!-- LISTA EM CIMA -->
+                <div class="data-table-container" style="margin-bottom: 30px;">
+                    <div style="display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap;">
+                        <input id="search" placeholder="BUSCAR ALUNO..." onkeyup="renderStudents()" style="margin-bottom:0; flex:1; min-width:200px;">
+                        <select id="filter" onchange="renderStudents()" style="width: 220px; margin-bottom:0">
+                            <option value="Todos">TODOS</option>
+                            <option value="Em Dia">EM DIA</option>
+                            <option value="Vencido">VENCIDO</option>
+                            <option value="Pago">PAGOS</option>
+                            <option value="Pendente">PENDENTES</option>
+                            <option value="ProxVencimento">ORDEM: MAIS PRÓXIMO</option>
+                            <option value="DistVencimento">ORDEM: MAIS DISTANTE</option>
+                        </select>
+                    </div>
+                    <table>
+                        <thead>
+                            <tr><th>NOME</th><th>PLANO</th><th>VENCIMENTO</th><th>PAGAMENTO</th><th>AÇÕES</th></tr>
+                        </thead>
+                        <tbody id="studentsTable"></tbody>
+                    </table>
+                </div>
+                <!-- FORMULÁRIO EMBAIXO -->
+                <div class="card" style="cursor:default">
                     <h2 class="subheadline" id="formTitle">Novo Cadastro</h2>
                     <input type="hidden" id="studentId">
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 15px; margin-top: 15px;">
@@ -274,27 +296,6 @@
                         <button id="btnSave" onclick="saveStudent()">SALVAR ALUNO</button>
                         <button id="btnCancel" onclick="clearForm()" style="display:none; background: #333; color: #fff;">CANCELAR</button>
                     </div>
-                </div>
-
-                <div class="data-table-container">
-                    <div style="display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap;">
-                        <input id="search" placeholder="BUSCAR ALUNO..." onkeyup="renderStudents()" style="margin-bottom:0; flex:1; min-width:200px;">
-                        <select id="filter" onchange="renderStudents()" style="width: 220px; margin-bottom:0">
-                            <option value="Todos">TODOS</option>
-                            <option value="Em Dia">EM DIA</option>
-                            <option value="Vencido">VENCIDO</option>
-                            <option value="Pago">PAGOS</option>
-                            <option value="Pendente">PENDENTES</option>
-                            <option value="ProxVencimento">ORDEM: MAIS PRÓXIMO</option>
-                            <option value="DistVencimento">ORDEM: MAIS DISTANTE</option>
-                        </select>
-                    </div>
-                    <table>
-                        <thead>
-                            <tr><th>NOME</th><th>PLANO</th><th>VENCIMENTO</th><th>PAGAMENTO</th><th>AÇÕES</th></tr>
-                        </thead>
-                        <tbody id="studentsTable"></tbody>
-                    </table>
                 </div>
             </div>
 
@@ -627,7 +628,7 @@ if (lastSync) {
         // DADOS
         // ============================
         // Versão do schema - se mudar, limpa o localStorage antigo
-        const DB_VERSION = "v7-always-reload-from-cloud-2026-06-30-1625";
+        const DB_VERSION = "v8-list-on-top-2026-06-30-1630";
         if (localStorage.getItem("dbVersion") !== DB_VERSION) {
             localStorage.removeItem("students");
             localStorage.removeItem("gymHistory");
