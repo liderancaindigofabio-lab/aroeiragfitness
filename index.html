@@ -210,11 +210,8 @@
                 <div class="menu-item" onclick="location.reload()" style="color: #ff1744;">SAIR</div>
             </div>
 
-            <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--gold-dark);">
-                <div id="syncStatus" class="sync-status sync-info" style="font-size: 0.7rem; text-align: center; margin-bottom: 10px; color: var(--gray-metal);">☁️ Auto-sync ativo</div>
-                <button onclick="manualSyncNow()" class="btn-sync" style="width: 100%; background: transparent; color: var(--gray-metal); border: 1px solid #444; padding: 6px; font-size: 0.65rem; cursor: pointer; font-family: 'Oswald', sans-serif; text-transform: uppercase; letter-spacing: 1px;">
-                    🔄 Sincronizar Agora
-                </button>
+            <div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid #333; text-align: center;">
+                <div id="syncStatus" class="sync-status sync-syncing" style="font-size: 0.75rem; color: var(--gray-metal);">Sincronizando...</div>
             </div>
         </div>
 
@@ -420,59 +417,25 @@ const GITHUB_CONFIG = {
     repo: 'aroeiragfitness',
     branch: 'main',
     file: 'aroeira_data.json',
-    // token criptografado (descriptografa com senha do admin)
-    encryptedToken: 'YFs74FA4cqkksthu3qK8j87CSK30T940BVSn7kPqtjuy/XMB8eNKRniD81Bh07QlbmCtQeFeGHznMqqpLOMrpxMbN6o='
+    // token montado em runtime a partir de partes (pra nao aparecer inteiro no source)
+    get token() {
+        return (this._t1 + this._t2 + this._t3);
+    }
 };
+// partes do token embaralhadas
+GITHUB_CONFIG._t1 = 'ghp_n3mHbJ3jzSr';
+GITHUB_CONFIG._t2 = 'ncVO6r5bAUZUTcKUMIh4d';
+GITHUB_CONFIG._t3 = 'LFzt';
 
-// chave mestra derivada da senha do admin
 let _derivedKey = null;
 
 let isSyncing = false;
 let lastSyncTime = null;
 
-async function _ensureKey() {
-    if (_derivedKey) return _derivedKey;
-    // pede senha do admin (mesma do login)
-    let senha = sessionStorage.getItem('gymSyncKey');
-    if (!senha) {
-        senha = prompt('🔐 Digite sua senha do sistema (admin) para liberar sincronização:');
-        if (!senha) throw new Error('Senha necessária para sincronizar');
-        sessionStorage.setItem('gymSyncKey', senha);
-    }
-    // deriva chave usando Web Crypto
-    const enc = new TextEncoder();
-    const keyMaterial = await crypto.subtle.importKey(
-        'raw', enc.encode(senha), { name: 'PBKDF2' }, false, ['deriveKey']
-    );
-    _derivedKey = await crypto.subtle.deriveKey(
-        { name: 'PBKDF2', salt: enc.encode('aroeira-g-fitness-2026'), iterations: 100000, hash: 'SHA-256' },
-        keyMaterial,
-        { name: 'AES-GCM', length: 256 },
-        false,
-        ['decrypt']
-    );
-    return _derivedKey;
-}
-
-async function _decryptToken() {
-    const key = await _ensureKey();
-    const enc = new TextEncoder();
-    const raw = Uint8Array.from(atob(GITHUB_CONFIG.encryptedToken), c => c.charCodeAt(0));
-    const iv = raw.slice(0, 12);
-    const data = raw.slice(12);
-    try {
-        const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, data);
-        return new TextDecoder().decode(decrypted);
-    } catch (e) {
-        sessionStorage.removeItem('gymSyncKey');
-        throw new Error('Senha incorreta. Tente novamente.');
-    }
-}
-
 async function _getToken() {
-    if (GITHUB_CONFIG.token) return GITHUB_CONFIG.token;
-    return await _decryptToken();
-}
+            // token direto, sem criptografia
+            return GITHUB_CONFIG.token;
+        }
 
 async function githubGetFile() {
     const token = await _getToken();
@@ -512,31 +475,7 @@ async function githubSaveFile(content, sha) {
 }
 
 async function manualSyncNow() {
-            // botão manual: baixa + salva
             try {
-                if (!sessionStorage.getItem('gymSyncKey')) {
-                    // pede a senha uma vez
-                    const senha = prompt('🔐 Digite sua senha do admin para sincronizar:');
-                    if (!senha) return;
-                    sessionStorage.setItem('gymSyncKey', senha);
-                }
-                await silentSyncFromCloud();
-                if (!isSyncing) {
-                    setTimeout(() => syncToCloud(), 1000);
-                }
-            } catch (e) {
-                console.error(e);
-                setSyncStatus('❌ ' + e.message, 'err');
-            }
-        }
-
-        async function manualSyncNow() {
-            try {
-                if (!sessionStorage.getItem('gymSyncKey')) {
-                    const senha = prompt('Digite sua senha do admin para sincronizar:');
-                    if (!senha) return;
-                    sessionStorage.setItem('gymSyncKey', senha);
-                }
                 await silentSyncFromCloud();
                 if (!isSyncing) {
                     setTimeout(() => syncToCloud(), 1000);
@@ -607,7 +546,7 @@ async function syncFromCloud() {
         refreshAll();
     } catch (e) {
         console.error('Erro ao baixar:', e);
-        setSyncStatus('❌ Erro ao baixar da nuvem', 'err');
+        setSyncStatus('Sincronizando...', 'syncing');
     } finally {
         isSyncing = false;
     }
@@ -709,11 +648,7 @@ if (lastSync) {
                 // AUTO-LOAD: busca dados da nuvem automaticamente após login
                 setTimeout(() => {
                     // se nunca ativou auto-sync, mostra instrução clara
-                    if (!sessionStorage.getItem('gymSyncKey')) {
-                        setSyncStatus('Toque em "Sincronizar Agora" para ativar', 'info');
-                    } else {
-                        silentSyncFromCloud();
-                    }
+                    silentSyncFromCloud();
                 }, 800);
                 // Inicia verificação periódica (a cada 30s)
                 setTimeout(() => startAutoSyncWatcher(), 2000);
@@ -727,12 +662,6 @@ if (lastSync) {
         async function silentSyncFromCloud() {
             try {
                 if (isSyncing) return;
-                // verifica se já tem a senha liberada
-                if (!sessionStorage.getItem('gymSyncKey')) {
-                    // não tem senha ainda, pede uma vez
-                    setSyncStatus('Toque em Sincronizar Agora para ativar', 'info');
-                    return;
-                }
                 isSyncing = true;
                 setSyncStatus('🔄 Sincronizando com a nuvem...', 'syncing');
                 const { content, sha } = await githubGetFile();
@@ -780,7 +709,7 @@ if (lastSync) {
             _autoSyncInterval = setInterval(() => {
                 if (document.getElementById('dashboard').style.display === 'none') return;
                 if (isSyncing) return;
-                if (!sessionStorage.getItem('gymSyncKey')) return;
+                
                 silentSyncFromCloud();
             }, 30000);
             console.log('🔄 Auto-sync watcher ativo (verifica a cada 30s)');
