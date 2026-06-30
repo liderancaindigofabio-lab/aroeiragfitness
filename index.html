@@ -626,6 +626,17 @@ if (lastSync) {
         // ============================
         // DADOS
         // ============================
+        // Versão do schema - se mudar, limpa o localStorage antigo
+        const DB_VERSION = "v4-clean-2026-06-30";
+        if (localStorage.getItem("dbVersion") !== DB_VERSION) {
+            localStorage.removeItem("students");
+            localStorage.removeItem("gymHistory");
+            localStorage.removeItem("adminPassword");
+            localStorage.removeItem("lastCloudUpdate");
+            localStorage.removeItem("lastSync");
+            localStorage.setItem("dbVersion", DB_VERSION);
+            console.log("♻️ Banco local resetado para " + DB_VERSION);
+        }
         let students = JSON.parse(localStorage.getItem("students") || "[]");
         const backupStudents = [];
 
