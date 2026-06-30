@@ -74,8 +74,10 @@
       "plan": "PLANO MENSAL",
       "value": "69.90",
       "due": "2026-06-13",
-      "payment": "Pendente",
-      "evaluations": []
+      "payment": "Pago",
+      "evaluations": [],
+      "paidDate": "2026-06-13",
+      "paidValue": "69.90"
     },
     {
       "id": 1000008,
@@ -118,8 +120,10 @@
       "plan": "PLANO 1° MÊS",
       "value": "59.90",
       "due": "2026-06-06",
-      "payment": "Pendente",
-      "evaluations": []
+      "payment": "Pago",
+      "evaluations": [],
+      "paidDate": "2026-06-06",
+      "paidValue": "59.90"
     },
     {
       "id": 1000012,
@@ -129,8 +133,10 @@
       "plan": "PLANO MENSAL",
       "value": "69.90",
       "due": "2026-06-14",
-      "payment": "Pendente",
-      "evaluations": []
+      "payment": "Pago",
+      "evaluations": [],
+      "paidDate": "2026-06-14",
+      "paidValue": "69.90"
     },
     {
       "id": 1000013,
@@ -195,8 +201,10 @@
       "plan": "PLANO MENSAL",
       "value": "69.90",
       "due": "2026-06-16",
-      "payment": "Pendente",
-      "evaluations": []
+      "payment": "Pago",
+      "evaluations": [],
+      "paidDate": "2026-06-16",
+      "paidValue": "69.90"
     },
     {
       "id": 1000019,
@@ -217,8 +225,10 @@
       "plan": "PLANO MENSAL",
       "value": "69.90",
       "due": "2026-06-22",
-      "payment": "Pendente",
-      "evaluations": []
+      "payment": "Pago",
+      "evaluations": [],
+      "paidDate": "2026-06-22",
+      "paidValue": "69.90"
     },
     {
       "id": 1000021,
@@ -316,8 +326,10 @@
       "plan": "PLANO MENSAL",
       "value": "69.90",
       "due": "2026-06-26",
-      "payment": "Pendente",
-      "evaluations": []
+      "payment": "Pago",
+      "evaluations": [],
+      "paidDate": "2026-06-26",
+      "paidValue": "69.90"
     },
     {
       "id": 1000030,
@@ -338,8 +350,10 @@
       "plan": "PLANO 1° MÊS",
       "value": "59.90",
       "due": "2026-06-12",
-      "payment": "Pendente",
-      "evaluations": []
+      "payment": "Pago",
+      "evaluations": [],
+      "paidDate": "2026-06-12",
+      "paidValue": "59.90"
     },
     {
       "id": 1000032,
@@ -349,8 +363,10 @@
       "plan": "CRÉDITO 15 DIAS",
       "value": "0.00",
       "due": "2026-06-03",
-      "payment": "Pendente",
-      "evaluations": []
+      "payment": "Pago",
+      "evaluations": [],
+      "paidDate": "2026-06-03",
+      "paidValue": "0.00"
     },
     {
       "id": 1000033,
@@ -360,8 +376,10 @@
       "plan": "PLANO MENSAL",
       "value": "69.90",
       "due": "2026-06-20",
-      "payment": "Pendente",
-      "evaluations": []
+      "payment": "Pago",
+      "evaluations": [],
+      "paidDate": "2026-06-20",
+      "paidValue": "69.90"
     },
     {
       "id": 1000034,
@@ -459,8 +477,10 @@
       "plan": "PLANO 1° MÊS",
       "value": "59.90",
       "due": "2026-06-14",
-      "payment": "Pendente",
-      "evaluations": []
+      "payment": "Pago",
+      "evaluations": [],
+      "paidDate": "2026-06-14",
+      "paidValue": "59.90"
     },
     {
       "id": 1000043,
@@ -547,8 +567,10 @@
       "plan": "PLANO MENSAL",
       "value": "69.90",
       "due": "2026-06-15",
-      "payment": "Pendente",
-      "evaluations": []
+      "payment": "Pago",
+      "evaluations": [],
+      "paidDate": "2026-06-15",
+      "paidValue": "69.90"
     },
     {
       "id": 1000051,
@@ -679,8 +701,10 @@
       "plan": "PLANO MENSAL",
       "value": "69.90",
       "due": "2026-06-15",
-      "payment": "Pendente",
-      "evaluations": []
+      "payment": "Pago",
+      "evaluations": [],
+      "paidDate": "2026-06-15",
+      "paidValue": "69.90"
     },
     {
       "id": 1000063,
@@ -778,8 +802,10 @@
       "plan": "PLANO MENSAL",
       "value": "69.90",
       "due": "2026-06-13",
-      "payment": "Pendente",
-      "evaluations": []
+      "payment": "Pago",
+      "evaluations": [],
+      "paidDate": "2026-06-13",
+      "paidValue": "69.90"
     },
     {
       "id": 1000072,
@@ -800,8 +826,10 @@
       "plan": "PLANO MENSAL",
       "value": "69.90",
       "due": "2026-06-09",
-      "payment": "Pendente",
-      "evaluations": []
+      "payment": "Pago",
+      "evaluations": [],
+      "paidDate": "2026-06-09",
+      "paidValue": "69.90"
     },
     {
       "id": 1000074,
@@ -811,8 +839,10 @@
       "plan": "PLANO MENSAL",
       "value": "69.90",
       "due": "2026-06-13",
-      "payment": "Pendente",
-      "evaluations": []
+      "payment": "Pago",
+      "evaluations": [],
+      "paidDate": "2026-06-13",
+      "paidValue": "69.90"
     },
     {
       "id": 1000075,
@@ -855,8 +885,10 @@
       "plan": "PLANO MENSAL",
       "value": "69.90",
       "due": "2026-06-26",
-      "payment": "Pendente",
-      "evaluations": []
+      "payment": "Pago",
+      "evaluations": [],
+      "paidDate": "2026-06-26",
+      "paidValue": "69.90"
     },
     {
       "id": 1000079,
@@ -910,8 +942,10 @@
       "plan": "PLANO MENSAL",
       "value": "69.90",
       "due": "2026-06-16",
-      "payment": "Pendente",
-      "evaluations": []
+      "payment": "Pago",
+      "evaluations": [],
+      "paidDate": "2026-06-16",
+      "paidValue": "69.90"
     },
     {
       "id": 1000084,
@@ -954,8 +988,10 @@
       "plan": "PLANO MENSAL",
       "value": "69.90",
       "due": "2026-06-25",
-      "payment": "Pendente",
-      "evaluations": []
+      "payment": "Pago",
+      "evaluations": [],
+      "paidDate": "2026-06-25",
+      "paidValue": "69.90"
     },
     {
       "id": 1000088,
@@ -965,8 +1001,10 @@
       "plan": "PLANO MENSAL",
       "value": "69.90",
       "due": "2026-06-16",
-      "payment": "Pendente",
-      "evaluations": []
+      "payment": "Pago",
+      "evaluations": [],
+      "paidDate": "2026-06-16",
+      "paidValue": "69.90"
     },
     {
       "id": 1000089,
@@ -987,8 +1025,10 @@
       "plan": "PLANO MENSAL",
       "value": "69.90",
       "due": "2026-06-17",
-      "payment": "Pendente",
-      "evaluations": []
+      "payment": "Pago",
+      "evaluations": [],
+      "paidDate": "2026-06-17",
+      "paidValue": "69.90"
     },
     {
       "id": 1000091,
@@ -1229,8 +1269,10 @@
       "plan": "PLANO 1° MÊS",
       "value": "59.90",
       "due": "2026-06-13",
-      "payment": "Pendente",
-      "evaluations": []
+      "payment": "Pago",
+      "evaluations": [],
+      "paidDate": "2026-06-13",
+      "paidValue": "59.90"
     },
     {
       "id": 1000113,
@@ -1251,8 +1293,10 @@
       "plan": "PLANO MENSAL",
       "value": "69.90",
       "due": "2026-06-13",
-      "payment": "Pendente",
-      "evaluations": []
+      "payment": "Pago",
+      "evaluations": [],
+      "paidDate": "2026-06-13",
+      "paidValue": "69.90"
     },
     {
       "id": 1000115,
@@ -1284,8 +1328,10 @@
       "plan": "PLANO MENSAL",
       "value": "69.90",
       "due": "2026-06-23",
-      "payment": "Pendente",
-      "evaluations": []
+      "payment": "Pago",
+      "evaluations": [],
+      "paidDate": "2026-06-23",
+      "paidValue": "69.90"
     },
     {
       "id": 1000118,
@@ -1343,7 +1389,284 @@
       "evaluations": []
     }
   ],
-  "history": [],
+  "history": [
+    {
+      "id": 1751300000001,
+      "studentId": 1000032,
+      "studentName": "GEOVANIA SANTOS JESUS",
+      "plan": "CRÉDITO 15 DIAS",
+      "value": "0.00",
+      "due": "2026-06-03",
+      "paidDate": "2026-06-03",
+      "referenceMonth": "2026-06",
+      "registeredAt": "2026-06-30T15:57:00-03:00",
+      "note": "Pagamento de junho confirmado"
+    },
+    {
+      "id": 1751300000002,
+      "studentId": 1000011,
+      "studentName": "CELESTE DA SILVA CARNEIRO",
+      "plan": "PLANO 1° MÊS",
+      "value": "59.90",
+      "due": "2026-06-06",
+      "paidDate": "2026-06-06",
+      "referenceMonth": "2026-06",
+      "registeredAt": "2026-06-30T15:57:00-03:00",
+      "note": "Pagamento de junho confirmado"
+    },
+    {
+      "id": 1751300000003,
+      "studentId": 1000073,
+      "studentName": "MARIA FABRÍCIO RIOS REIS",
+      "plan": "PLANO MENSAL",
+      "value": "69.90",
+      "due": "2026-06-09",
+      "paidDate": "2026-06-09",
+      "referenceMonth": "2026-06",
+      "registeredAt": "2026-06-30T15:57:00-03:00",
+      "note": "Pagamento de junho confirmado"
+    },
+    {
+      "id": 1751300000004,
+      "studentId": 1000031,
+      "studentName": "GENICLEIA SOUZA DA SILVA",
+      "plan": "PLANO 1° MÊS",
+      "value": "59.90",
+      "due": "2026-06-12",
+      "paidDate": "2026-06-12",
+      "referenceMonth": "2026-06",
+      "registeredAt": "2026-06-30T15:57:00-03:00",
+      "note": "Pagamento de junho confirmado"
+    },
+    {
+      "id": 1751300000005,
+      "studentId": 1000007,
+      "studentName": "BETÂNIA SOUZA DA SILVA",
+      "plan": "PLANO MENSAL",
+      "value": "69.90",
+      "due": "2026-06-13",
+      "paidDate": "2026-06-13",
+      "referenceMonth": "2026-06",
+      "registeredAt": "2026-06-30T15:57:00-03:00",
+      "note": "Pagamento de junho confirmado"
+    },
+    {
+      "id": 1751300000006,
+      "studentId": 1000071,
+      "studentName": "MARCELA DE JESUS LIMA",
+      "plan": "PLANO MENSAL",
+      "value": "69.90",
+      "due": "2026-06-13",
+      "paidDate": "2026-06-13",
+      "referenceMonth": "2026-06",
+      "registeredAt": "2026-06-30T15:57:00-03:00",
+      "note": "Pagamento de junho confirmado"
+    },
+    {
+      "id": 1751300000007,
+      "studentId": 1000074,
+      "studentName": "MARIA GEZUINA JESUS DE LIMA",
+      "plan": "PLANO MENSAL",
+      "value": "69.90",
+      "due": "2026-06-13",
+      "paidDate": "2026-06-13",
+      "referenceMonth": "2026-06",
+      "registeredAt": "2026-06-30T15:57:00-03:00",
+      "note": "Pagamento de junho confirmado"
+    },
+    {
+      "id": 1751300000008,
+      "studentId": 1000114,
+      "studentName": "TATIANA CARNEIRO DA SILVA",
+      "plan": "PLANO MENSAL",
+      "value": "69.90",
+      "due": "2026-06-13",
+      "paidDate": "2026-06-13",
+      "referenceMonth": "2026-06",
+      "registeredAt": "2026-06-30T15:57:00-03:00",
+      "note": "Pagamento de junho confirmado"
+    },
+    {
+      "id": 1751300000009,
+      "studentId": 1000112,
+      "studentName": "TÂNIA LÍVIA SANTOS DE SOUZA",
+      "plan": "PLANO 1° MÊS",
+      "value": "59.90",
+      "due": "2026-06-13",
+      "paidDate": "2026-06-13",
+      "referenceMonth": "2026-06",
+      "registeredAt": "2026-06-30T15:57:00-03:00",
+      "note": "Pagamento de junho confirmado"
+    },
+    {
+      "id": 1751300000010,
+      "studentId": 1000012,
+      "studentName": "CLAUDIANE DE SOUZA MELO",
+      "plan": "PLANO MENSAL",
+      "value": "69.90",
+      "due": "2026-06-14",
+      "paidDate": "2026-06-14",
+      "referenceMonth": "2026-06",
+      "registeredAt": "2026-06-30T15:57:00-03:00",
+      "note": "Pagamento de junho confirmado"
+    },
+    {
+      "id": 1751300000011,
+      "studentId": 1000042,
+      "studentName": "IANDRA DE JESUS OLIVEIRA",
+      "plan": "PLANO 1° MÊS",
+      "value": "59.90",
+      "due": "2026-06-14",
+      "paidDate": "2026-06-14",
+      "referenceMonth": "2026-06",
+      "registeredAt": "2026-06-30T15:57:00-03:00",
+      "note": "Pagamento de junho confirmado"
+    },
+    {
+      "id": 1751300000012,
+      "studentId": 1000050,
+      "studentName": "JOANICE DA SILVA OLIVEIRA",
+      "plan": "PLANO MENSAL",
+      "value": "69.90",
+      "due": "2026-06-15",
+      "paidDate": "2026-06-15",
+      "referenceMonth": "2026-06",
+      "registeredAt": "2026-06-30T15:57:00-03:00",
+      "note": "Pagamento de junho confirmado"
+    },
+    {
+      "id": 1751300000013,
+      "studentId": 1000062,
+      "studentName": "LAURA PEREIRA DOS SANTOS",
+      "plan": "PLANO MENSAL",
+      "value": "69.90",
+      "due": "2026-06-15",
+      "paidDate": "2026-06-15",
+      "referenceMonth": "2026-06",
+      "registeredAt": "2026-06-30T15:57:00-03:00",
+      "note": "Pagamento de junho confirmado"
+    },
+    {
+      "id": 1751300000014,
+      "studentId": 1000018,
+      "studentName": "EDSON CARNEIRO SOUZA",
+      "plan": "PLANO MENSAL",
+      "value": "69.90",
+      "due": "2026-06-16",
+      "paidDate": "2026-06-16",
+      "referenceMonth": "2026-06",
+      "registeredAt": "2026-06-30T15:57:00-03:00",
+      "note": "Pagamento de junho confirmado"
+    },
+    {
+      "id": 1751300000015,
+      "studentId": 1000083,
+      "studentName": "MARLUCE DOS ANJOS MIRANDA",
+      "plan": "PLANO MENSAL",
+      "value": "69.90",
+      "due": "2026-06-16",
+      "paidDate": "2026-06-16",
+      "referenceMonth": "2026-06",
+      "registeredAt": "2026-06-30T15:57:00-03:00",
+      "note": "Pagamento de junho confirmado"
+    },
+    {
+      "id": 1751300000016,
+      "studentId": 1000088,
+      "studentName": "NEULA CARLA ALMEIDA PEREIRA",
+      "plan": "PLANO MENSAL",
+      "value": "69.90",
+      "due": "2026-06-16",
+      "paidDate": "2026-06-16",
+      "referenceMonth": "2026-06",
+      "registeredAt": "2026-06-30T15:57:00-03:00",
+      "note": "Pagamento de junho confirmado"
+    },
+    {
+      "id": 1751300000017,
+      "studentId": 1000090,
+      "studentName": "NORMAEL SILVA DE SOUZA",
+      "plan": "PLANO MENSAL",
+      "value": "69.90",
+      "due": "2026-06-17",
+      "paidDate": "2026-06-17",
+      "referenceMonth": "2026-06",
+      "registeredAt": "2026-06-30T15:57:00-03:00",
+      "note": "Pagamento de junho confirmado"
+    },
+    {
+      "id": 1751300000018,
+      "studentId": 1000033,
+      "studentName": "GESSICA DA SILVA OLIVEIRA ARAÚJO",
+      "plan": "PLANO MENSAL",
+      "value": "69.90",
+      "due": "2026-06-20",
+      "paidDate": "2026-06-20",
+      "referenceMonth": "2026-06",
+      "registeredAt": "2026-06-30T15:57:00-03:00",
+      "note": "Pagamento de junho confirmado"
+    },
+    {
+      "id": 1751300000019,
+      "studentId": 1000020,
+      "studentName": "ELIANA PINHEIRO DA SILVA",
+      "plan": "PLANO MENSAL",
+      "value": "69.90",
+      "due": "2026-06-22",
+      "paidDate": "2026-06-22",
+      "referenceMonth": "2026-06",
+      "registeredAt": "2026-06-30T15:57:00-03:00",
+      "note": "Pagamento de junho confirmado"
+    },
+    {
+      "id": 1751300000020,
+      "studentId": 1000117,
+      "studentName": "THIAGO FERREIRA DOS SANTOS",
+      "plan": "PLANO MENSAL",
+      "value": "69.90",
+      "due": "2026-06-23",
+      "paidDate": "2026-06-23",
+      "referenceMonth": "2026-06",
+      "registeredAt": "2026-06-30T15:57:00-03:00",
+      "note": "Pagamento de junho confirmado"
+    },
+    {
+      "id": 1751300000021,
+      "studentId": 1000087,
+      "studentName": "NATALICE LIMA DE JESUS",
+      "plan": "PLANO MENSAL",
+      "value": "69.90",
+      "due": "2026-06-25",
+      "paidDate": "2026-06-25",
+      "referenceMonth": "2026-06",
+      "registeredAt": "2026-06-30T15:57:00-03:00",
+      "note": "Pagamento de junho confirmado"
+    },
+    {
+      "id": 1751300000022,
+      "studentId": 1000029,
+      "studentName": "FLÁVIO SOUSA DE SANTANA",
+      "plan": "PLANO MENSAL",
+      "value": "69.90",
+      "due": "2026-06-26",
+      "paidDate": "2026-06-26",
+      "referenceMonth": "2026-06",
+      "registeredAt": "2026-06-30T15:57:00-03:00",
+      "note": "Pagamento de junho confirmado"
+    },
+    {
+      "id": 1751300000023,
+      "studentId": 1000078,
+      "studentName": "MARINEIDE DA CONCEIÇÃO SANTOS",
+      "plan": "PLANO MENSAL",
+      "value": "69.90",
+      "due": "2026-06-26",
+      "paidDate": "2026-06-26",
+      "referenceMonth": "2026-06",
+      "registeredAt": "2026-06-30T15:57:00-03:00",
+      "note": "Pagamento de junho confirmado"
+    }
+  ],
   "password": "123456",
-  "lastUpdate": "2026-06-30T15:48:00-03:00"
+  "lastUpdate": "2026-06-30T15:57:00-03:00"
 }
