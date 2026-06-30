@@ -103,14 +103,15 @@
     },
     {
       "id": 1781246118931,
-      "name": "CARLOS ANDRÃÂÃÂ LIMA DOS SANTOS",
+      "name": "CARLOS ANDRE LIMA DOS SANTOS",
       "email": "santosandre8868@gmail.com",
       "phone": "(75) 9997-88933",
       "plan": "PLANO MENSAL",
       "value": "69.90",
       "due": "2026-05-13",
       "payment": "Pendente",
-      "evaluations": []
+      "evaluations": [],
+      "paymentHistory": []
     },
     {
       "id": 1781246118932,
@@ -1347,5 +1348,5 @@
   ],
   "history": [],
   "password": "123456",
-  "lastUpdate": "2026-06-30T18:22:07.521Z"
+  "lastUpdate": "2026-06-30T18:22:24.838Z"
 }
