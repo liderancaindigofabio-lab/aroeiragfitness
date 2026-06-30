@@ -562,6 +562,12 @@ async function syncFromCloud() {
             PASSWORD = data.password;
             localStorage.setItem('adminPassword', PASSWORD);
         }
+        if (data.lastUpdate) {
+            localStorage.setItem('lastCloudUpdate', data.lastUpdate);
+        }
+        if (data.lastUpdate) {
+            localStorage.setItem('lastCloudUpdate', data.lastUpdate);
+        }
         lastSyncTime = new Date();
         localStorage.setItem('lastSync', lastSyncTime.toISOString());
         setSyncStatus(`✓ Atualizado ${formatTime(lastSyncTime)}`, 'ok');
@@ -667,10 +673,79 @@ if (lastSync) {
                 document.getElementById("loginScreen").style.display = "none";
                 document.getElementById("dashboard").style.display = "block";
                 refreshAll();
+                // AUTO-LOAD: busca dados da nuvem automaticamente após login
+                setTimeout(() => {
+                    silentSyncFromCloud();
+                }, 800);
+                // Inicia verificação periódica (a cada 30s)
+                setTimeout(() => startAutoSyncWatcher(), 2000);
             } else {
                 document.getElementById("loginError").style.display = "block";
                 setTimeout(() => document.getElementById("loginError").style.display = "none", 3000);
             }
+        }
+
+        // Sync silencioso (sem pedir senha, usa sessionStorage)
+        async function silentSyncFromCloud() {
+            try {
+                if (isSyncing) return;
+                // verifica se já tem a senha liberada
+                if (!sessionStorage.getItem('gymSyncKey')) {
+                    // não tem senha ainda, pede uma vez
+                    setSyncStatus('🔐 Clique em "Baixar da Nuvem" uma vez para liberar auto-sync', 'info');
+                    return;
+                }
+                isSyncing = true;
+                setSyncStatus('🔄 Sincronizando com a nuvem...', 'syncing');
+                const { content, sha } = await githubGetFile();
+                if (!content) {
+                    setSyncStatus('☁️ Nuvem vazia — salvando dados locais', 'info');
+                    await syncToCloud();
+                    return;
+                }
+                const data = JSON.parse(content);
+                // checa se é mais novo que o que tá no localStorage
+                const localUpdate = localStorage.getItem('lastCloudUpdate') || '0';
+                if (data.lastUpdate && data.lastUpdate > localUpdate) {
+                    // nuvem é mais nova, baixa
+                    if (data.students) {
+                        students = data.students;
+                        localStorage.setItem('students', JSON.stringify(students));
+                    }
+                    if (data.history) {
+                        history = data.history;
+                        localStorage.setItem('gymHistory', JSON.stringify(history));
+                    }
+                    if (data.password) {
+                        PASSWORD = data.password;
+                        localStorage.setItem('adminPassword', PASSWORD);
+                    }
+                    localStorage.setItem('lastCloudUpdate', data.lastUpdate);
+                    lastSyncTime = new Date();
+                    setSyncStatus(`✓ Atualizado da nuvem ${formatTime(lastSyncTime)}`, 'ok');
+                    refreshAll();
+                } else {
+                    setSyncStatus(`✓ Em dia (${formatTime(lastSyncTime || new Date())})`, 'ok');
+                }
+            } catch (e) {
+                console.error('Silent sync erro:', e);
+                setSyncStatus('❌ Erro ao sincronizar', 'err');
+            } finally {
+                isSyncing = false;
+            }
+        }
+
+        // Verifica mudanças a cada 30s
+        let _autoSyncInterval = null;
+        function startAutoSyncWatcher() {
+            if (_autoSyncInterval) return;
+            _autoSyncInterval = setInterval(() => {
+                if (document.getElementById('dashboard').style.display === 'none') return;
+                if (isSyncing) return;
+                if (!sessionStorage.getItem('gymSyncKey')) return;
+                silentSyncFromCloud();
+            }, 30000);
+            console.log('🔄 Auto-sync watcher ativo (verifica a cada 30s)');
         }
 
         function switchTab(id, el) {
