@@ -759,14 +759,13 @@ if (lastSync) {
 
             // até 2 dias antes do vencimento => Em Dia
             // 1 dia antes => Pendente
-            // 1 dia após => Vencido
+            // 0 (vence hoje) ou após => Vencido
             // 1 mês após (~30 dias) => Atrasado
             if (diffDays <= -2) return "Em Dia";
             if (diffDays === -1) return "Pendente";
-            if (diffDays >= 1 && diffDays < 30) return "Vencido";
+            if (diffDays >= 0 && diffDays < 30) return "Vencido";
             if (diffDays >= 30) return "Atrasado";
-            // diffDays === 0 (dia do vencimento) => Em Dia (ainda não venceu)
-            return "Em Dia";
+            return "Vencido";
         }
 
         // Retorna uma cor por status
