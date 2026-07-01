@@ -450,7 +450,11 @@ async function githubGetFile() {
     if (res.status === 404) return { content: null, sha: null };
     if (!res.ok) throw new Error(`GitHub GET falhou: ${res.status}`);
     const data = await res.json();
-    const decoded = atob(data.content.replace(/\n/g, ''));
+    // Decodifica base64 -> bytes -> string UTF-8 (corrigir acentos)
+    const binary = atob(data.content.replace(/\n/g, ''));
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    const decoded = new TextDecoder('utf-8').decode(bytes);
     return { content: decoded, sha: data.sha };
 }
 
@@ -628,7 +632,7 @@ if (lastSync) {
         // DADOS
         // ============================
         // Versão do schema - se mudar, limpa o localStorage antigo
-        const DB_VERSION = "v8-list-on-top-2026-06-30-1630";
+        const DB_VERSION = "v9-utf8-fix-2026-07-01-0243";
         if (localStorage.getItem("dbVersion") !== DB_VERSION) {
             localStorage.removeItem("students");
             localStorage.removeItem("gymHistory");
