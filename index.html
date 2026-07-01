@@ -873,6 +873,50 @@ if (lastSync) {
         }
 
         // ============================
+        // WHATSAPP COM MENSAGEM AUTOMÁTICA
+        // ============================
+        function openWhatsApp(id) {
+            const s = students.find(x => x.id === id);
+            if (!s) return;
+            const phoneDigits = s.phone ? s.phone.replace(/\D/g, '') : '';
+            if (!phoneDigits) {
+                alert('Aluno sem telefone cadastrado!');
+                return;
+            }
+            const st = getStatus(s.due);
+            const firstName = s.name.split(' ')[0];
+            const dueFmt = s.due ? formatDate(s.due) : 'em breve';
+            let msg = '';
+
+            if (st === 'Pendente') {
+                msg = `*MENSAGEM AUTOMÁTICA*\n\n` +
+                      `Olá! Seu vencimento de matrícula está próximo (${dueFmt}). ` +
+                      `Não perca o ritmo, continue focado(a) nos seus objetivos 💪\n\n` +
+                      `Deseja receber o link de pagamento?\n` +
+                      `Digite *"Sim"* para receber e *"Não"* para não receber este lembrete novamente.`;
+            } else if (st === 'Vencido') {
+                msg = `*MENSAGEM AUTOMÁTICA*\n\n` +
+                      `Olá! Seu vencimento de matrícula é dia ${dueFmt}. ` +
+                      `Não perca o ritmo, continue focado(a) nos seus objetivos 💪\n\n` +
+                      `Segue o link para pagamento.\n\n` +
+                      `https://checkout.nubank.com.br/0orAaL40W8qsgvi\n\n` +
+                      `Digite *"Não"* para não receber mais este lembrete.`;
+            } else if (st === 'Atrasado') {
+                msg = `MENSAGEM AUTOMÁTICA\n\n` +
+                      `Olá! 😊\n\n` +
+                      `Percebemos que sua última atualização foi em ${dueFmt}. Aconteceu alguma coisa?\n\n` +
+                      `Digite "Voltar" e aproveite uma oferta especial para reativar seu acesso hoje mesmo.\n\n` +
+                      `Se não desejar mais receber este lembrete, responda "Não".`;
+            } else {
+                // Em Dia ou Sem Data
+                msg = `Olá ${firstName}! Tudo bem? 😊`;
+            }
+
+            const url = `https://wa.me/55${phoneDigits}?text=${encodeURIComponent(msg)}`;
+            window.open(url, '_blank');
+        }
+
+        // ============================
         // PERSISTÊNCIA
         // ============================
         function save() {
@@ -978,7 +1022,7 @@ if (lastSync) {
                     <td>
                         <button class="action-btn btn-lg" onclick="openProfile(${s.id})" style="background:#2196f3">PERFIL</button>
                         <button class="action-btn btn-lg" onclick="editStudent(${s.id})" style="background:#ff9800">EDITAR</button>
-                        <button class="action-btn" onclick="window.open('https://wa.me/55${phoneDigits}')" style="background:#25d366">WHATSAPP</button>
+                        <button class="action-btn" onclick="openWhatsApp(${s.id})" style="background:#25d366">WHATSAPP</button>
                         <button class="action-btn" onclick="deleteStudent(${s.id})" style="background:#ff1744">EXCLUIR</button>
                     </td>
                 </tr>`;
