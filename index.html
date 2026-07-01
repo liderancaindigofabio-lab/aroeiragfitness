@@ -958,9 +958,11 @@ if (lastSync) {
                 const st = getStatus(s.due);
                 if (search && !s.name.toLowerCase().includes(search)) return;
 
+                // Filtros baseados no status CALCULADO (não no campo payment do JSON)
+                if (filter === "Em Dia" && st !== "Em Dia") return;
                 if (filter === "Vencido" && st !== "Vencido") return;
                 if (filter === "Pago" && s.payment !== "Pago") return;
-                if (filter === "Pendente" && s.payment !== "Pendente") return;
+                if (filter === "Pendente" && st !== "Pendente") return;
 
                 const isPaid = s.payment === 'Pago';
                 const color = isPaid ? '#00c853' : getStatusColor(st);
