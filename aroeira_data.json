@@ -543,12 +543,18 @@
       "name": "IANDRA DE JESUS OLIVEIRA",
       "email": "iandradejesusoliveira727@gmail.com",
       "phone": "(75) 9828-25689",
-      "plan": "PLANO 1° MÊS",
+      "plan": "69’90",
       "value": "69.90",
       "due": "2026-07-06",
-      "payment": "",
+      "payment": "Pago",
       "evaluations": [],
-      "paymentHistory": []
+      "paymentHistory": [
+        {
+          "month": "JULHO DE 2026",
+          "value": "69.90",
+          "date": "2026-07-06"
+        }
+      ]
     },
     {
       "id": 43,
@@ -1603,5 +1609,5 @@
   ],
   "history": [],
   "password": "123456",
-  "lastUpdate": "2026-07-06T14:49:06.302Z"
+  "lastUpdate": "2026-07-06T14:50:21.097Z"
 }
