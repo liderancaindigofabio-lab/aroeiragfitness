@@ -32,12 +32,17 @@
       "email": "roselylimadossantos.7@gmail.com",
       "phone": "(75) 9881-96487",
       "plan": "PLANO MENSAL",
-      "value": 69.9,
-      "due": "2026-05-16",
-      "payment": "Atrasado",
-      "paymentHistory": [],
+      "value": "69.9",
+      "due": "2026-07-03",
+      "payment": "Pago",
       "evaluations": [],
-      "gymHistory": []
+      "paymentHistory": [
+        {
+          "month": "JULHO DE 2026",
+          "value": "69.9",
+          "date": "2026-07-06"
+        }
+      ]
     },
     {
       "id": 4,
@@ -1609,5 +1614,5 @@
   ],
   "history": [],
   "password": "123456",
-  "lastUpdate": "2026-07-06T14:50:21.097Z"
+  "lastUpdate": "2026-07-06T14:55:02.785Z"
 }
