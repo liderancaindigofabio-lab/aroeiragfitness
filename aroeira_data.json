@@ -555,7 +555,7 @@
       "phone": "(75) 9828-25689",
       "plan": "69’90",
       "value": "69.90",
-      "due": "2026-07-06",
+      "due": "2026-08-06",
       "payment": "Pago",
       "evaluations": [],
       "paymentHistory": [
@@ -1631,5 +1631,5 @@
   ],
   "history": [],
   "password": "123456",
-  "lastUpdate": "2026-07-06T18:42:43.369Z"
+  "lastUpdate": "2026-07-06T18:43:35.032Z"
 }
