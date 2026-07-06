@@ -741,12 +741,11 @@
       "email": "julybodesantos@gmail.com",
       "phone": "(75) 9833-73173",
       "plan": "PLANO MENSAL",
-      "value": 69.9,
-      "due": "2026-07-13",
-      "payment": "Em Dia",
-      "paymentHistory": [],
+      "value": "69.9",
+      "due": "2026-08-13",
+      "payment": "",
       "evaluations": [],
-      "gymHistory": []
+      "paymentHistory": []
     },
     {
       "id": 57,
@@ -1631,5 +1630,5 @@
   ],
   "history": [],
   "password": "123456",
-  "lastUpdate": "2026-07-06T18:43:35.032Z"
+  "lastUpdate": "2026-07-06T18:44:26.781Z"
 }
