@@ -253,12 +253,17 @@
       "email": "eliena@gmail.com",
       "phone": "(75) 9914-96173",
       "plan": "PLANO MENSAL",
-      "value": 69.9,
-      "due": "2026-06-22",
-      "payment": "Vencido",
-      "paymentHistory": [],
+      "value": "69.9",
+      "due": "2026-07-22",
+      "payment": "Pago",
       "evaluations": [],
-      "gymHistory": []
+      "paymentHistory": [
+        {
+          "month": "JULHO DE 2026",
+          "value": "69.9",
+          "date": "2026-07-06"
+        }
+      ]
     },
     {
       "id": 21,
@@ -1599,5 +1604,5 @@
   ],
   "history": [],
   "password": "123456",
-  "lastUpdate": "2026-07-06T14:29:05.094Z"
+  "lastUpdate": "2026-07-06T14:46:02.892Z"
 }
