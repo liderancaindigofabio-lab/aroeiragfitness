@@ -544,12 +544,11 @@
       "email": "iandradejesusoliveira727@gmail.com",
       "phone": "(75) 9828-25689",
       "plan": "PLANO 1° MÊS",
-      "value": 59.9,
-      "due": "2026-06-14",
-      "payment": "Vencido",
-      "paymentHistory": [],
+      "value": "69.90",
+      "due": "2026-07-06",
+      "payment": "",
       "evaluations": [],
-      "gymHistory": []
+      "paymentHistory": []
     },
     {
       "id": 43,
@@ -1604,5 +1603,5 @@
   ],
   "history": [],
   "password": "123456",
-  "lastUpdate": "2026-07-06T14:46:02.892Z"
+  "lastUpdate": "2026-07-06T14:49:06.302Z"
 }
