@@ -1615,9 +1615,21 @@
       "paymentHistory": [],
       "evaluations": [],
       "gymHistory": []
+    },
+    {
+      "id": 1783363328030,
+      "name": "SILVANIA SILVA DE SOUZA",
+      "email": "9242444g@gmail.com",
+      "phone": "(75)998202254",
+      "plan": "MENSAL",
+      "value": "69.99",
+      "due": "2026-08-06",
+      "payment": "Pago",
+      "evaluations": [],
+      "paymentHistory": []
     }
   ],
   "history": [],
   "password": "123456",
-  "lastUpdate": "2026-07-06T18:15:52.684Z"
+  "lastUpdate": "2026-07-06T18:42:12.632Z"
 }
