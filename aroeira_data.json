@@ -67,13 +67,18 @@
       "name": "ANECI DA CRUS SANTOS MACHADO",
       "email": "anecy595@gmail.com",
       "phone": "(75) 9835-01876",
-      "plan": "PLANO 1° MÊS",
-      "value": 59.9,
-      "due": "2026-04-11",
-      "payment": "Atrasado",
-      "paymentHistory": [],
+      "plan": "",
+      "value": "69.90",
+      "due": "2026-08-09",
+      "payment": "Pago",
       "evaluations": [],
-      "gymHistory": []
+      "paymentHistory": [
+        {
+          "month": "JULHO DE 2026",
+          "value": "69.90",
+          "date": "2026-07-08"
+        }
+      ]
     },
     {
       "id": 6,
@@ -1650,5 +1655,5 @@
   ],
   "history": [],
   "password": "123456",
-  "lastUpdate": "2026-07-08T14:35:36.098Z"
+  "lastUpdate": "2026-07-08T20:21:53.589Z"
 }
