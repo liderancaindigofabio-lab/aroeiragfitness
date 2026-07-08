@@ -1519,12 +1519,17 @@
       "email": "v4393616@gmail.com",
       "phone": "(75) 9911-06162",
       "plan": "PLANO MENSAL",
-      "value": 69.9,
-      "due": "2026-07-05",
-      "payment": "Em Dia",
-      "paymentHistory": [],
+      "value": "69.9",
+      "due": "2026-08-05",
+      "payment": "Pago",
       "evaluations": [],
-      "gymHistory": []
+      "paymentHistory": [
+        {
+          "month": "JULHO DE 2026",
+          "value": "69.9",
+          "date": "2026-07-08"
+        }
+      ]
     },
     {
       "id": 115,
@@ -1645,5 +1650,5 @@
   ],
   "history": [],
   "password": "123456",
-  "lastUpdate": "2026-07-08T14:34:46.158Z"
+  "lastUpdate": "2026-07-08T14:35:36.098Z"
 }
