@@ -1525,13 +1525,18 @@
       "name": "TÂNIA LÍVIA SANTOS DE SOUZA",
       "email": "tanialiviasantosdesouza@gmail.com",
       "phone": "(75) 9917-43329",
-      "plan": "PLANO 1° MÊS",
-      "value": 59.9,
-      "due": "2026-06-13",
-      "payment": "Vencido",
-      "paymentHistory": [],
+      "plan": "",
+      "value": "69.90",
+      "due": "2026-08-07",
+      "payment": "Pago",
       "evaluations": [],
-      "gymHistory": []
+      "paymentHistory": [
+        {
+          "month": "JULHO DE 2026",
+          "value": "69.90",
+          "date": "2026-07-09"
+        }
+      ]
     },
     {
       "id": 114,
@@ -1670,5 +1675,5 @@
   ],
   "history": [],
   "password": "123456",
-  "lastUpdate": "2026-07-09T22:20:09.681Z"
+  "lastUpdate": "2026-07-09T22:20:59.767Z"
 }
