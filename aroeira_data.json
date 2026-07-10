@@ -86,12 +86,17 @@
       "email": "beatrizjesuszandjd09@gmail.com",
       "phone": "(75) 9981-67246",
       "plan": "PLANO 1° MÊS",
-      "value": 59.9,
-      "due": "2026-05-30",
-      "payment": "Atrasado",
-      "paymentHistory": [],
+      "value": "69.90",
+      "due": "2026-07-30",
+      "payment": "Pago",
       "evaluations": [],
-      "gymHistory": []
+      "paymentHistory": [
+        {
+          "month": "JULHO DE 2026",
+          "value": "69.90",
+          "date": "2026-07-10"
+        }
+      ]
     },
     {
       "id": 7,
@@ -1675,5 +1680,5 @@
   ],
   "history": [],
   "password": "123456",
-  "lastUpdate": "2026-07-09T22:20:59.767Z"
+  "lastUpdate": "2026-07-10T09:59:28.335Z"
 }
