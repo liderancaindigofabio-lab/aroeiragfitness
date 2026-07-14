@@ -1696,9 +1696,21 @@
       "payment": "Pago",
       "evaluations": [],
       "paymentHistory": []
+    },
+    {
+      "id": 1783993361757,
+      "name": "LUCAS FERNANDES",
+      "email": "",
+      "phone": "",
+      "plan": "",
+      "value": "69.90",
+      "due": "2026-08-10",
+      "payment": "Pago",
+      "evaluations": [],
+      "paymentHistory": []
     }
   ],
   "history": [],
   "password": "123456",
-  "lastUpdate": "2026-07-14T01:18:12.204Z"
+  "lastUpdate": "2026-07-14T01:42:53.187Z"
 }
