@@ -200,12 +200,11 @@
       "email": "freitasdaiane361@gmail.com",
       "phone": "(75) 9824-13915",
       "plan": "PLANO 1° MÊS",
-      "value": 69.9,
+      "value": "69.9",
       "due": "2026-07-16",
-      "payment": "Em Dia",
-      "paymentHistory": [],
+      "payment": "",
       "evaluations": [],
-      "gymHistory": []
+      "paymentHistory": []
     },
     {
       "id": 15,
@@ -1738,5 +1737,5 @@
   ],
   "history": [],
   "password": "123456",
-  "lastUpdate": "2026-07-15T01:00:24.306Z"
+  "lastUpdate": "2026-07-15T01:01:18.320Z"
 }
