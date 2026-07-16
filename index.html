@@ -895,12 +895,36 @@ if (lastSync) {
                       `Deseja receber o link de pagamento?\n` +
                       `Digite *"Sim"* para receber e *"Não"* para não receber este lembrete novamente.`;
             } else if (st === 'Vencido') {
-                msg = `*MENSAGEM AUTOMÁTICA*\n\n` +
-                      `Olá! Seu vencimento de matrícula é dia ${dueFmt}. ` +
-                      `Não perca o ritmo, continue focado(a) nos seus objetivos 💪\n\n` +
-                      `Segue o link para pagamento.\n\n` +
-                      `https://checkout.nubank.com.br/0orAaL40W8qsgvi\n\n` +
-                      `Digite *"Não"* para não receber mais este lembrete.`;
+                // ===== Mensagem customizada por valor da matrícula =====
+                // 69,90 (mensal) -> código PIX fixo
+                // 14,99 (diário) e 12x 49,90 (anual) -> link Nubank (como antes)
+                // qualquer outro valor -> aluno responde "Pagar" pra receber o link
+                const valorNum = parseFloat(s.value) || 0;
+                if (valorNum >= 69.89 && valorNum <= 69.91) {
+                    // R$ 69,90 — código PIX fixo
+                    msg = `*MENSAGEM AUTOMÁTICA*\n\n` +
+                          `Olá! Seu vencimento de matrícula é dia ${dueFmt}. ` +
+                          `Não perca o ritmo, continue focado(a) nos seus objetivos 💪\n\n` +
+                          `Segue o código cópia e cola.\n` +
+                          `Para pagamento em cartão, digitar "cartão".\n\n` +
+                          `00020126580014BR.GOV.BCB.PIX01368b39900f-9c8e-4fa1-93c3-1f5e07d891f8520400005303986540569.905802BR5920GILVA SANTOS ALMEIDA6011PE DE SERRA62140510pSYjliUrEB6304D5D2\n\n` +
+                          `Digite *"Não"* para não receber mais este lembrete.`;
+                } else if (valorNum === 14.99 || valorNum === 49.90 || valorNum === 49.9) {
+                    // R$ 14,99 (diário) ou R$ 49,90 (anual) — link Nubank como antes
+                    msg = `*MENSAGEM AUTOMÁTICA*\n\n` +
+                          `Olá! Seu vencimento de matrícula é dia ${dueFmt}. ` +
+                          `Não perca o ritmo, continue focado(a) nos seus objetivos 💪\n\n` +
+                          `Segue o link para pagamento.\n\n` +
+                          `https://checkout.nubank.com.br/0orAaL40W8qsgvi\n\n` +
+                          `Digite *"Não"* para não receber mais este lembrete.`;
+                } else {
+                    // Qualquer outro valor — aluno responde "Pagar" pra receber o link
+                    msg = `*MENSAGEM AUTOMÁTICA*\n\n` +
+                          `Olá! Seu vencimento de matrícula é dia ${dueFmt}. ` +
+                          `Não perca o ritmo, continue focado(a) nos seus objetivos 💪\n\n` +
+                          `Digite "Pagar" para receber pix para pagamento.\n\n` +
+                          `Digite *"Não"* para não receber mais este lembrete.`;
+                }
             } else if (st === 'Atrasado') {
                 msg = `MENSAGEM AUTOMÁTICA\n\n` +
                       `Olá! 😊\n\n` +
