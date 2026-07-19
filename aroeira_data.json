@@ -407,16 +407,15 @@
     },
     {
       "id": 28,
-      "name": "FABRÍCIA SOARES CRUZ",
+      "name": "FABRICIA SOARES CRUZ",
       "email": "fabriciciacruz@gmail.com",
       "phone": "(75) 9988-74799",
       "plan": "SEM PLANO",
-      "value": 0,
-      "due": null,
-      "payment": "Sem Data",
-      "paymentHistory": [],
+      "value": "0",
+      "due": "",
+      "payment": "",
       "evaluations": [],
-      "gymHistory": []
+      "paymentHistory": []
     },
     {
       "id": 29,
@@ -1762,5 +1761,5 @@
   ],
   "history": [],
   "password": "123456",
-  "lastUpdate": "2026-07-19T00:31:09.523Z"
+  "lastUpdate": "2026-07-19T00:33:15.527Z"
 }
