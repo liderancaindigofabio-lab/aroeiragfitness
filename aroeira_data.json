@@ -267,12 +267,17 @@
       "email": "edson@gmail.com",
       "phone": "(75) 9999-30953",
       "plan": "PLANO MENSAL",
-      "value": 69.9,
-      "due": "2026-06-16",
-      "payment": "Vencido",
-      "paymentHistory": [],
+      "value": "69.9",
+      "due": "2026-08-16",
+      "payment": "Pago",
       "evaluations": [],
-      "gymHistory": []
+      "paymentHistory": [
+        {
+          "month": "JULHO DE 2026",
+          "value": "69.9",
+          "date": "2026-07-21"
+        }
+      ]
     },
     {
       "id": 19,
@@ -1771,5 +1776,5 @@
   ],
   "history": [],
   "password": "123456",
-  "lastUpdate": "2026-07-21T10:42:48.313Z"
+  "lastUpdate": "2026-07-21T10:43:27.600Z"
 }
