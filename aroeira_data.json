@@ -1318,7 +1318,7 @@
       "phone": "(75) 9913-91530",
       "plan": "PLANO MENSAL",
       "value": "69.9",
-      "due": "2026-08-02",
+      "due": "2026-09-02",
       "payment": "Pago",
       "evaluations": [],
       "paymentHistory": [
@@ -1786,5 +1786,5 @@
   ],
   "history": [],
   "password": "123456",
-  "lastUpdate": "2026-07-23T21:41:08.399Z"
+  "lastUpdate": "2026-08-01T16:38:48.206Z"
 }
