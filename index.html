@@ -427,21 +427,36 @@
 // A chave do GitHub fica somente no backend seguro. O navegador conversa
 // apenas com a API da Aroeira e não precisa mais de token.
 const SYNC_API = 'https://aroeira-gfitness-sync.onrender.com';
+const RAW_DATA_URL = 'https://raw.githubusercontent.com/liderancaindigofabio-lab/aroeiragfitness/main/aroeira_data.json';
 let isSyncing = false;
 let lastSyncTime = null;
 
+function fetchWithTimeout(url, options = {}, timeoutMs = 10000) {
+    return Promise.race([
+        fetch(url, options),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('tempo limite da sincronização')), timeoutMs))
+    ]);
+}
+
 async function apiGetData() {
-    const res = await fetch(`${SYNC_API}/api/sync?t=${Date.now()}`, { cache: 'no-store' });
-    if (!res.ok) throw new Error(`API de sincronização: ${res.status}`);
-    return res.json();
+    try {
+        const res = await fetchWithTimeout(`${SYNC_API}/api/sync?t=${Date.now()}`, { cache: 'no-store' }, 10000);
+        if (!res.ok) throw new Error(`API de sincronização: ${res.status}`);
+        return res.json();
+    } catch (backendError) {
+        // Leitura reserva: nunca deixa o painel preso em "Sincronizando".
+        const raw = await fetchWithTimeout(`${RAW_DATA_URL}?t=${Date.now()}`, { cache: 'no-store' }, 10000);
+        if (!raw.ok) throw backendError;
+        return raw.json();
+    }
 }
 
 async function apiSaveData(data) {
-    const res = await fetch(`${SYNC_API}/api/sync`, {
+    const res = await fetchWithTimeout(`${SYNC_API}/api/sync`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
-    });
+    }, 15000);
     if (!res.ok) throw new Error(`API de sincronização: ${res.status}`);
     return res.json();
 }
