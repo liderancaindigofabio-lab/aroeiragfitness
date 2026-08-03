@@ -96,14 +96,15 @@ const server = http.createServer(async (req, res) => {
   }
 
   try {
-    if (req.method === 'GET' && req.url === '/') {
-      return send(res, 200, { ok: true, service: 'aroeira-gfitness-sync', version: '1.0.0' }, origin);
+    const pathname = new URL(req.url, `http://${req.headers.host || 'localhost'}`).pathname;
+    if (req.method === 'GET' && pathname === '/') {
+      return send(res, 200, { ok: true, service: 'aroeira-gfitness-sync', version: '1.0.1' }, origin);
     }
-    if (req.method === 'GET' && req.url === '/api/sync') {
+    if (req.method === 'GET' && pathname === '/api/sync') {
       const result = await githubGet();
       return send(res, 200, { ok: true, ...result.data }, origin);
     }
-    if (req.method === 'POST' && req.url === '/api/sync') {
+    if (req.method === 'POST' && pathname === '/api/sync') {
       const data = await readBody(req);
       if (!Array.isArray(data.students) || !Array.isArray(data.history)) {
         return send(res, 400, { ok: false, error: 'students e history são obrigatórios' }, origin);
