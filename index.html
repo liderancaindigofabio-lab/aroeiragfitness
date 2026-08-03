@@ -702,6 +702,12 @@ if (lastSync) {
             return `${d}/${m}/${y}`;
         }
 
+        function formatTime(value) {
+            const date = value instanceof Date ? value : new Date(value);
+            if (Number.isNaN(date.getTime())) return '--:--';
+            return date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        }
+
         function getTodayISO() {
             return new Date().toISOString().split('T')[0];
         }
