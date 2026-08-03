@@ -331,6 +331,20 @@
                     </div>
                 </div>
                 <div class="card" style="margin-top: 20px; cursor:default">
+                    <h2 class="subheadline">Sincronização segura com a nuvem</h2>
+                    <p style="font-size: 0.7rem; line-height: 1.5; color: var(--gray-metal);">
+                        Para salvar alterações na nuvem, configure o token Fine-grained do GitHub com acesso somente ao repositório oficial da Aroeira.
+                        O token não fica no código público e é armazenado apenas neste navegador.
+                    </p>
+                    <label>TOKEN DO GITHUB</label>
+                    <input id="githubSyncToken" type="password" placeholder="Cole o token aqui" autocomplete="off">
+                    <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:8px;">
+                        <button onclick="saveSyncToken()">ATIVAR SINCRONIZAÇÃO</button>
+                        <button onclick="clearSyncToken()" style="background:#333; color:#fff;">REMOVER TOKEN</button>
+                    </div>
+                    <p style="font-size:0.7rem; color:var(--gray-metal); margin-top:8px;">Permissão necessária: <b>Contents → Read and write</b>.</p>
+                </div>
+                <div class="card" style="margin-top: 20px; cursor:default">
                     <h2 class="subheadline">Instruções para Planilha (CSV)</h2>
                     <p style="font-size: 0.7rem; line-height: 1.5; color: var(--gray-metal);">
                         Para importar via Excel/Planilha, use o formato <b>CSV (Separado por ponto e vírgula)</b>.<br>
@@ -421,45 +435,59 @@ const GITHUB_CONFIG = {
     repo: 'aroeiragfitness',
     branch: 'main',
     file: 'aroeira_data.json',
-    // token montado em runtime a partir de partes (pra nao aparecer inteiro no source)
-    get token() {
-        return (this._t1 + this._t2 + this._t3);
-    }
+    rawUrl: 'https://raw.githubusercontent.com/liderancaindigofabio-lab/aroeiragfitness/main/aroeira_data.json'
 };
-// partes do token embaralhadas
-GITHUB_CONFIG._t1 = 'ghp_Ui5wQy6eT';
-GITHUB_CONFIG._t2 = 'Gn9q7bDkslXOL';
-GITHUB_CONFIG._t3 = 'snqJb4w70FtIbT';
-
-let _derivedKey = null;
 
 let isSyncing = false;
 let lastSyncTime = null;
 
-async function _getToken() {
-            // token direto, sem criptografia
-            return GITHUB_CONFIG.token;
-        }
+// O token nunca fica no código público. O administrador configura uma vez
+// em Backup / Config; ele fica somente no armazenamento local deste navegador.
+function getSyncToken() {
+    return (localStorage.getItem('githubSyncToken') || '').trim();
+}
+
+function saveSyncToken() {
+    const input = document.getElementById('githubSyncToken');
+    const token = input ? input.value.trim() : '';
+    if (!token) return alert('Cole o token do GitHub para ativar a sincronização.');
+    localStorage.setItem('githubSyncToken', token);
+    if (input) input.value = '';
+    setSyncStatus('Token configurado. Testando a nuvem...', 'syncing');
+    silentSyncFromCloud();
+}
+
+function clearSyncToken() {
+    localStorage.removeItem('githubSyncToken');
+    const input = document.getElementById('githubSyncToken');
+    if (input) input.value = '';
+    setSyncStatus('Token removido. A leitura pública continua disponível.', 'info');
+}
 
 async function githubGetFile() {
-    const token = await _getToken();
-    const url = `https://api.github.com/repos/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/contents/${GITHUB_CONFIG.file}`;
-    const res = await fetch(url, {
-        headers: { 'Authorization': `token ${token}` }
-    });
+    const token = getSyncToken();
+    const apiUrl = `https://api.github.com/repos/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/contents/${GITHUB_CONFIG.file}`;
+    // Leitura pública de emergência: o painel continua carregando mesmo
+    // antes de o token ser configurado ou se a API estiver indisponível.
+    if (!token) {
+        const raw = await fetch(`${GITHUB_CONFIG.rawUrl}?t=${Date.now()}`, { cache: 'no-store' });
+        if (!raw.ok) throw new Error(`Leitura pública falhou: ${raw.status}`);
+        return { content: await raw.text(), sha: null, publicOnly: true };
+    }
+    const res = await fetch(apiUrl, { headers: { 'Authorization': `Bearer ${token}` } });
     if (res.status === 404) return { content: null, sha: null };
     if (!res.ok) throw new Error(`GitHub GET falhou: ${res.status}`);
     const data = await res.json();
-    // Decodifica base64 -> bytes -> string UTF-8 (corrigir acentos)
     const binary = atob(data.content.replace(/\n/g, ''));
     const bytes = new Uint8Array(binary.length);
     for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
     const decoded = new TextDecoder('utf-8').decode(bytes);
-    return { content: decoded, sha: data.sha };
+    return { content: decoded, sha: data.sha, publicOnly: false };
 }
 
 async function githubSaveFile(content, sha) {
-    const token = await _getToken();
+    const token = getSyncToken();
+    if (!token) throw new Error('Token do GitHub não configurado em Backup / Config.');
     const url = `https://api.github.com/repos/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/contents/${GITHUB_CONFIG.file}`;
     const body = {
         message: `sync: atualização ${new Date().toISOString()}`,
@@ -470,7 +498,7 @@ async function githubSaveFile(content, sha) {
     const res = await fetch(url, {
         method: 'PUT',
         headers: {
-            'Authorization': `token ${token}`,
+            'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
         },
         body: JSON.stringify(body)
@@ -509,10 +537,15 @@ async function manualSyncNow() {
         await githubSaveFile(JSON.stringify(current, null, 2), sha);
         lastSyncTime = new Date();
         localStorage.setItem('lastSync', lastSyncTime.toISOString());
+        localStorage.removeItem('pendingCloudSync');
         setSyncStatus(`✓ Sincronizado ${formatTime(lastSyncTime)}`, 'ok');
     } catch (e) {
         console.error('Erro sync:', e);
-        setSyncStatus('❌ Erro de sincronização', 'err');
+        if (!getSyncToken()) {
+            setSyncStatus('⚠️ Configure o token em Backup / Config', 'err');
+        } else {
+            setSyncStatus('❌ Erro de sincronização — tente novamente', 'err');
+        }
     } finally {
         isSyncing = false;
     }
@@ -525,6 +558,7 @@ async function syncFromCloud() {
     try {
         const { content } = await githubGetFile();
         if (!content) {
+            if (!getSyncToken()) throw new Error('Token do GitHub não configurado.');
             setSyncStatus('☁️ Nuvem vazia — salvando dados atuais', 'info');
             await syncToCloud();
             return;
@@ -584,9 +618,10 @@ function saveDataLocally() {
 let _syncDebounce = null;
 function scheduleAutoSync() {
     if (_syncDebounce) clearTimeout(_syncDebounce);
+    localStorage.setItem('pendingCloudSync', '1');
     _syncDebounce = setTimeout(() => {
         if (!isSyncing) syncToCloud();
-    }, 3000); // espera 3s sem mudanças pra não ficar salvando a cada tecla
+    }, 1500); // pequena espera para agrupar alterações, sem perder ao salvar
 }
 
 // Monitora mudanças em students e history
@@ -707,7 +742,8 @@ if (lastSync) {
                     localStorage.setItem('lastCloudUpdate', data.lastUpdate);
                 }
                 lastSyncTime = new Date();
-                setSyncStatus(`✓ ${data.students ? data.students.length : 0} alunos carregados da nuvem`, 'ok');
+                localStorage.setItem('lastSync', lastSyncTime.toISOString());
+                setSyncStatus(`✓ ${data.students ? data.students.length : 0} alunos carregados da nuvem${getSyncToken() ? '' : ' (somente leitura)'}`, 'ok');
                 refreshAll();
             } catch (e) {
                 console.error('Silent sync erro:', e);
@@ -789,6 +825,14 @@ if (lastSync) {
             return new Date().toISOString().split('T')[0];
         }
 
+        // O vencimento é a fonte do status atual. Um registro antigo marcado
+        // como Pago não pode continuar verde depois que a data venceu.
+        function getDisplayStatus(student) {
+            const calculated = getStatus(student.due);
+            if (calculated === 'Vencido' || calculated === 'Atrasado') return calculated;
+            return student.payment === 'Pago' ? 'Pago' : calculated;
+        }
+
         // ============================
         // CRUD ALUNOS
         // ============================
@@ -848,7 +892,7 @@ if (lastSync) {
             document.getElementById("plan").value = s.plan;
             document.getElementById("value").value = s.value;
             document.getElementById("due").value = s.due;
-            document.getElementById("payment").value = s.payment;
+            document.getElementById("payment").value = getDisplayStatus(s) === 'Pago' ? 'Pago' : 'Pendente';
 
             document.getElementById("formTitle").innerText = "Editar Aluno";
             document.getElementById("btnSave").innerText = "ATUALIZAR CADASTRO";
@@ -944,9 +988,9 @@ if (lastSync) {
         // PERSISTÊNCIA
         // ============================
         function save() {
-            localStorage.setItem("students", JSON.stringify(students));
-            // mantém compatibilidade com backups antigos (gymHistory fica vazio)
-            localStorage.setItem("gymHistory", JSON.stringify([]));
+            // Nunca apaga o histórico ao salvar um aluno.
+            saveDataLocally();
+            scheduleAutoSync();
             refreshAll();
         }
 
@@ -987,7 +1031,7 @@ if (lastSync) {
             // Vencidos: alunos com status Vencido/Atrasado e ainda não pagos
             students.forEach(s => {
                 const st = getStatus(s.due);
-                if ((st === "Vencido" || st === "Atrasado") && s.payment !== "Pago") vencidos++;
+                if (st === "Vencido" || st === "Atrasado") vencidos++;
             });
 
             document.getElementById("totalAlunos").innerText = total;
@@ -1029,12 +1073,12 @@ if (lastSync) {
                 // Filtros baseados no status CALCULADO (não no campo payment do JSON)
                 if (filter === "Em Dia" && st !== "Em Dia") return;
                 if (filter === "Vencido" && st !== "Vencido") return;
-                if (filter === "Pago" && s.payment !== "Pago") return;
+                if (filter === "Pago" && getDisplayStatus(s) !== "Pago") return;
                 if (filter === "Pendente" && st !== "Pendente") return;
 
-                const isPaid = s.payment === 'Pago';
-                const color = isPaid ? '#00c853' : getStatusColor(st);
-                const label = isPaid ? 'Pago' : st;
+                const displayStatus = getDisplayStatus(s);
+                const color = displayStatus === 'Pago' ? '#00c853' : getStatusColor(displayStatus);
+                const label = displayStatus;
                 const phoneDigits = s.phone ? s.phone.replace(/\D/g,'') : '';
                 count++;
 
@@ -1145,9 +1189,8 @@ if (lastSync) {
             const s = students.find(x => x.id === id);
             if (!s) return;
             const st = getStatus(s.due);
-            const isPaid = s.payment === 'Pago';
-            const statusColor = isPaid ? '#00c853' : (st === 'Vencido' ? '#ff1744' : '#ffb300');
-            const statusLabel = isPaid ? 'Pago' : (st === 'Vencido' ? 'Vencido' : 'Em Dia');
+            const statusLabel = getDisplayStatus(s);
+            const statusColor = statusLabel === 'Pago' ? '#00c853' : getStatusColor(statusLabel);
 
             document.getElementById("modalTitle").innerText = s.name;
 
@@ -1441,7 +1484,7 @@ if (lastSync) {
         function showVencidosList() {
             const problemas = students.filter(s => {
                 const st = getStatus(s.due);
-                return (st === "Vencido" || st === "Atrasado") && s.payment !== "Pago";
+                return (st === "Vencido" || st === "Atrasado");
             }).sort((a, b) => new Date(a.due) - new Date(b.due));
 
             let html = `<p style="margin-bottom:15px; color:var(--gray-metal);">Alunos com pagamento atrasado (Vencido ou Atrasado):</p>`;
