@@ -440,7 +440,7 @@ function fetchWithTimeout(url, options = {}, timeoutMs = 10000) {
 
 async function apiGetData() {
     try {
-        const res = await fetchWithTimeout(`${SYNC_API}/api/sync?t=${Date.now()}`, { cache: 'no-store' }, 10000);
+        const res = await fetchWithTimeout(`${SYNC_API}/api/sync`, { cache: 'no-store' }, 10000);
         if (!res.ok) throw new Error(`API de sincronização: ${res.status}`);
         return res.json();
     } catch (backendError) {
