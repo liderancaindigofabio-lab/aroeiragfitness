@@ -331,18 +331,12 @@
                     </div>
                 </div>
                 <div class="card" style="margin-top: 20px; cursor:default">
-                    <h2 class="subheadline">Sincronização segura com a nuvem</h2>
+                    <h2 class="subheadline">Sincronização automática</h2>
                     <p style="font-size: 0.7rem; line-height: 1.5; color: var(--gray-metal);">
-                        Para salvar alterações na nuvem, configure o token Fine-grained do GitHub com acesso somente ao repositório oficial da Aroeira.
-                        O token não fica no código público e é armazenado apenas neste navegador.
+                        A sincronização é protegida pelo servidor e acontece automaticamente após cada alteração.
+                        Não é necessário inserir token ou configurar este navegador.
                     </p>
-                    <label>TOKEN DO GITHUB</label>
-                    <input id="githubSyncToken" type="password" placeholder="Cole o token aqui" autocomplete="off">
-                    <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:8px;">
-                        <button onclick="saveSyncToken()">ATIVAR SINCRONIZAÇÃO</button>
-                        <button onclick="clearSyncToken()" style="background:#333; color:#fff;">REMOVER TOKEN</button>
-                    </div>
-                    <p style="font-size:0.7rem; color:var(--gray-metal); margin-top:8px;">Permissão necessária: <b>Contents → Read and write</b>.</p>
+                    <button onclick="manualSyncNow()">SINCRONIZAR AGORA</button>
                 </div>
                 <div class="card" style="margin-top: 20px; cursor:default">
                     <h2 class="subheadline">Instruções para Planilha (CSV)</h2>
@@ -429,189 +423,53 @@
         // ============================
         const USER = "admin";
 
-// ========== SINCRONIZAÇÃO COM GITHUB ==========
-const GITHUB_CONFIG = {
-    owner: 'liderancaindigofabio-lab',
-    repo: 'aroeiragfitness',
-    branch: 'main',
-    file: 'aroeira_data.json',
-    rawUrl: 'https://raw.githubusercontent.com/liderancaindigofabio-lab/aroeiragfitness/main/aroeira_data.json'
-};
-
+// ========== SINCRONIZAÇÃO AUTOMÁTICA ========== 
+// A chave do GitHub fica somente no backend seguro. O navegador conversa
+// apenas com a API da Aroeira e não precisa mais de token.
+const SYNC_API = 'https://aroeira-gfitness-sync.onrender.com';
 let isSyncing = false;
 let lastSyncTime = null;
 
-// O token nunca fica no código público. O administrador configura uma vez
-// em Backup / Config; ele fica somente no armazenamento local deste navegador.
-function getSyncToken() {
-    return (localStorage.getItem('githubSyncToken') || '').trim();
+async function apiGetData() {
+    const res = await fetch(`${SYNC_API}/api/sync?t=${Date.now()}`, { cache: 'no-store' });
+    if (!res.ok) throw new Error(`API de sincronização: ${res.status}`);
+    return res.json();
 }
 
-function saveSyncToken() {
-    const input = document.getElementById('githubSyncToken');
-    const token = input ? input.value.trim() : '';
-    if (!token) return alert('Cole o token do GitHub para ativar a sincronização.');
-    localStorage.setItem('githubSyncToken', token);
-    if (input) input.value = '';
-    setSyncStatus('Token configurado. Testando a nuvem...', 'syncing');
-    silentSyncFromCloud();
-}
-
-function clearSyncToken() {
-    localStorage.removeItem('githubSyncToken');
-    const input = document.getElementById('githubSyncToken');
-    if (input) input.value = '';
-    setSyncStatus('Token removido. A leitura pública continua disponível.', 'info');
-}
-
-async function githubGetFile() {
-    const token = getSyncToken();
-    const apiUrl = `https://api.github.com/repos/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/contents/${GITHUB_CONFIG.file}`;
-    // Leitura pública de emergência: o painel continua carregando mesmo
-    // antes de o token ser configurado ou se a API estiver indisponível.
-    if (!token) {
-        const raw = await fetch(`${GITHUB_CONFIG.rawUrl}?t=${Date.now()}`, { cache: 'no-store' });
-        if (!raw.ok) throw new Error(`Leitura pública falhou: ${raw.status}`);
-        return { content: await raw.text(), sha: null, publicOnly: true };
-    }
-    const res = await fetch(apiUrl, { headers: { 'Authorization': `Bearer ${token}` } });
-    if (res.status === 404) return { content: null, sha: null };
-    if (!res.ok) throw new Error(`GitHub GET falhou: ${res.status}`);
-    const data = await res.json();
-    const binary = atob(data.content.replace(/\n/g, ''));
-    const bytes = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-    const decoded = new TextDecoder('utf-8').decode(bytes);
-    return { content: decoded, sha: data.sha, publicOnly: false };
-}
-
-async function githubSaveFile(content, sha) {
-    const token = getSyncToken();
-    if (!token) throw new Error('Token do GitHub não configurado em Backup / Config.');
-    const url = `https://api.github.com/repos/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/contents/${GITHUB_CONFIG.file}`;
-    const body = {
-        message: `sync: atualização ${new Date().toISOString()}`,
-        content: btoa(unescape(encodeURIComponent(content))),
-        branch: GITHUB_CONFIG.branch
-    };
-    if (sha) body.sha = sha;
-    const res = await fetch(url, {
-        method: 'PUT',
-        headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(body)
+async function apiSaveData(data) {
+    const res = await fetch(`${SYNC_API}/api/sync`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
     });
-    if (!res.ok) {
-        const err = await res.text();
-        throw new Error(`GitHub PUT falhou: ${res.status} - ${err}`);
-    }
-    return await res.json();
+    if (!res.ok) throw new Error(`API de sincronização: ${res.status}`);
+    return res.json();
 }
 
-async function manualSyncNow() {
-            try {
-                await silentSyncFromCloud();
-                if (!isSyncing) {
-                    setTimeout(() => syncToCloud(), 1000);
-                }
-            } catch (e) {
-                console.error(e);
-                setSyncStatus('Erro: ' + e.message, 'err');
-            }
-        }
-
-        async function syncToCloud() {
+async function syncToCloud() {
     if (isSyncing) return;
     isSyncing = true;
-    setSyncStatus('Sincronizando...', 'syncing');
+    setSyncStatus('Sincronizando com a nuvem...', 'syncing');
     try {
-        const current = {
-            students: students,
-            history: history,
-            password: PASSWORD,
-            lastUpdate: new Date().toISOString()
-        };
-        const { sha } = await githubGetFile();
-        await githubSaveFile(JSON.stringify(current, null, 2), sha);
-        lastSyncTime = new Date();
+        const result = await apiSaveData({ students, history, password: PASSWORD });
+        lastSyncTime = new Date(result.lastUpdate || Date.now());
         localStorage.setItem('lastSync', lastSyncTime.toISOString());
         localStorage.removeItem('pendingCloudSync');
         setSyncStatus(`✓ Sincronizado ${formatTime(lastSyncTime)}`, 'ok');
     } catch (e) {
         console.error('Erro sync:', e);
-        if (!getSyncToken()) {
-            setSyncStatus('⚠️ Configure o token em Backup / Config', 'err');
-        } else {
-            setSyncStatus('❌ Erro de sincronização — tente novamente', 'err');
-        }
+        localStorage.setItem('pendingCloudSync', '1');
+        setSyncStatus('❌ Não foi possível sincronizar — tentando novamente', 'err');
     } finally {
         isSyncing = false;
     }
 }
 
-async function syncFromCloud() {
-    if (isSyncing) return;
-    isSyncing = true;
-    setSyncStatus('Baixando dados da nuvem...', 'syncing');
-    try {
-        const { content } = await githubGetFile();
-        if (!content) {
-            if (!getSyncToken()) throw new Error('Token do GitHub não configurado.');
-            setSyncStatus('☁️ Nuvem vazia — salvando dados atuais', 'info');
-            await syncToCloud();
-            return;
-        }
-        const data = JSON.parse(content);
-        if (data.students && Array.isArray(data.students)) {
-            students = data.students;
-            localStorage.setItem('students', JSON.stringify(students));
-        }
-        if (data.history && Array.isArray(data.history)) {
-            history = data.history;
-            localStorage.setItem('gymHistory', JSON.stringify(history));
-        }
-        if (data.password) {
-            PASSWORD = data.password;
-            localStorage.setItem('adminPassword', PASSWORD);
-        }
-        if (data.lastUpdate) {
-            localStorage.setItem('lastCloudUpdate', data.lastUpdate);
-        }
-        if (data.lastUpdate) {
-            localStorage.setItem('lastCloudUpdate', data.lastUpdate);
-        }
-        lastSyncTime = new Date();
-        localStorage.setItem('lastSync', lastSyncTime.toISOString());
-        setSyncStatus(`✓ Atualizado ${formatTime(lastSyncTime)}`, 'ok');
-        refreshAll();
-    } catch (e) {
-        console.error('Erro ao baixar:', e);
-        setSyncStatus('Sincronizando...', 'syncing');
-    } finally {
-        isSyncing = false;
-    }
+async function manualSyncNow() {
+    await silentSyncFromCloud();
+    if (!isSyncing) await syncToCloud();
 }
 
-function formatTime(d) {
-    return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-}
-
-function setSyncStatus(text, cls) {
-    const el = document.getElementById('syncStatus');
-    if (el) {
-        el.textContent = text;
-        el.className = `sync-status sync-${cls}`;
-    }
-}
-
-// Hooks: salvar tudo que muda dados, salva na nuvem também
-function saveDataLocally() {
-    localStorage.setItem('students', JSON.stringify(students));
-    localStorage.setItem('gymHistory', JSON.stringify(history));
-    localStorage.setItem('adminPassword', PASSWORD);
-}
 // ========== FIM SINCRONIZAÇÃO ==========
 
 // Auto-sync: chama syncToCloud automaticamente após mudanças
@@ -718,19 +576,12 @@ if (lastSync) {
                 if (isSyncing) return;
                 isSyncing = true;
                 setSyncStatus('🔄 Sincronizando com a nuvem...', 'syncing');
-                const { content, sha } = await githubGetFile();
-                if (!content) {
-                    setSyncStatus('☁️ Nuvem vazia — salvando dados locais', 'info');
-                    await syncToCloud();
-                    return;
-                }
-                const data = JSON.parse(content);
-                // SEMPRE baixa o que tá na nuvem (forçar reload)
-                if (data.students) {
+                const data = await apiGetData();
+                if (Array.isArray(data.students)) {
                     students = data.students;
                     localStorage.setItem('students', JSON.stringify(students));
                 }
-                if (data.history) {
+                if (Array.isArray(data.history)) {
                     history = data.history;
                     localStorage.setItem('gymHistory', JSON.stringify(history));
                 }
@@ -738,16 +589,14 @@ if (lastSync) {
                     PASSWORD = data.password;
                     localStorage.setItem('adminPassword', PASSWORD);
                 }
-                if (data.lastUpdate) {
-                    localStorage.setItem('lastCloudUpdate', data.lastUpdate);
-                }
-                lastSyncTime = new Date();
+                if (data.lastUpdate) localStorage.setItem('lastCloudUpdate', data.lastUpdate);
+                lastSyncTime = new Date(data.lastUpdate || Date.now());
                 localStorage.setItem('lastSync', lastSyncTime.toISOString());
-                setSyncStatus(`✓ ${data.students ? data.students.length : 0} alunos carregados da nuvem${getSyncToken() ? '' : ' (somente leitura)'}`, 'ok');
+                setSyncStatus(`✓ ${data.students ? data.students.length : 0} alunos carregados da nuvem`, 'ok');
                 refreshAll();
             } catch (e) {
                 console.error('Silent sync erro:', e);
-                setSyncStatus('❌ Erro ao sincronizar', 'err');
+                setSyncStatus('❌ Erro ao sincronizar — tentando novamente', 'err');
             } finally {
                 isSyncing = false;
             }
