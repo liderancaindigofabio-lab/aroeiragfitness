@@ -485,6 +485,14 @@ async function manualSyncNow() {
     if (!isSyncing) await syncToCloud();
 }
 
+// Atualiza o indicador visível da sincronização.
+function setSyncStatus(message, kind = 'info') {
+    const el = document.getElementById('syncStatus');
+    if (!el) return;
+    el.textContent = message;
+    el.className = `sync-status sync-${kind}`;
+}
+
 // ========== FIM SINCRONIZAÇÃO ==========
 
 // Auto-sync: chama syncToCloud automaticamente após mudanças
