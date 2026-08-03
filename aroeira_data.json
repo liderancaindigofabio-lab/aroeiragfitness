@@ -1609,7 +1609,7 @@
       "plan": "PLANO MENSAL",
       "value": "69.9",
       "due": "2026-07-23",
-      "payment": "Pago",
+      "payment": "Pendente",
       "evaluations": [],
       "paymentHistory": [
         {
@@ -1786,5 +1786,5 @@
   ],
   "history": [],
   "password": "123456",
-  "lastUpdate": "2026-08-03T16:29:53.504Z"
+  "lastUpdate": "2026-08-03T16:55:30.408Z"
 }
