@@ -446,12 +446,17 @@
       "email": "tedte@gnsil.com",
       "phone": "(75) 9929-56099",
       "plan": "PLANO MENSAL",
-      "value": 60,
-      "due": "2026-07-13",
-      "payment": "Em Dia",
-      "paymentHistory": [],
+      "value": "60",
+      "due": "2026-09-02",
+      "payment": "Pago",
       "evaluations": [],
-      "gymHistory": []
+      "paymentHistory": [
+        {
+          "month": "AGOSTO DE 2026",
+          "value": "60",
+          "date": "2026-08-05"
+        }
+      ]
     },
     {
       "id": 31,
@@ -1796,5 +1801,5 @@
   ],
   "history": [],
   "password": "123456",
-  "lastUpdate": "2026-08-05T09:18:05.727Z"
+  "lastUpdate": "2026-08-05T09:18:58.004Z"
 }
