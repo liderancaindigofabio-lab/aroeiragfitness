@@ -430,6 +430,8 @@ const SYNC_API = 'https://aroeira-gfitness-sync.onrender.com';
 const RAW_DATA_URL = 'https://raw.githubusercontent.com/liderancaindigofabio-lab/aroeiragfitness/main/aroeira_data.json';
 let isSyncing = false;
 let lastSyncTime = null;
+let _cloudSaveChain = Promise.resolve();
+let _saveSequence = 0;
 
 function fetchWithTimeout(url, options = {}, timeoutMs = 10000) {
     return Promise.race([
@@ -455,31 +457,50 @@ async function apiSaveData(data) {
     const res = await fetchWithTimeout(`${SYNC_API}/api/sync`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
+        body: JSON.stringify(data),
+        // Permite que o navegador conclua o salvamento mesmo se a página
+        // começar a ser fechada logo depois do clique.
+        keepalive: true
     }, 15000);
     if (!res.ok) throw new Error(`API de sincronização: ${res.status}`);
-    // O servidor já confirmou o commit. Não bloqueia a tela aguardando o JSON
-    // de resposta, que pode ficar preso em alguns navegadores/proxies.
-    return { lastUpdate: new Date().toISOString() };
+    return res.json();
 }
 
-async function syncToCloud() {
-    if (isSyncing) return;
-    isSyncing = true;
-    setSyncStatus('Sincronizando com a nuvem...', 'syncing');
-    try {
-        const result = await apiSaveData({ students, history, password: PASSWORD });
-        lastSyncTime = new Date(result.lastUpdate || Date.now());
-        localStorage.setItem('lastSync', lastSyncTime.toISOString());
-        localStorage.removeItem('pendingCloudSync');
-        setSyncStatus(`✓ Sincronizado ${formatTime(lastSyncTime)}`, 'ok');
-    } catch (e) {
-        console.error('Erro sync:', e);
-        localStorage.setItem('pendingCloudSync', '1');
-        setSyncStatus('❌ Não foi possível sincronizar — tentando novamente', 'err');
-    } finally {
-        isSyncing = false;
-    }
+function snapshotAtual() {
+    return { students, history, password: PASSWORD };
+}
+
+function syncToCloud(snapshot = snapshotAtual()) {
+    const sequence = ++_saveSequence;
+    // Outbox local: se a internet cair, o próximo carregamento tenta novamente.
+    localStorage.setItem('pendingCloudPayload', JSON.stringify(snapshot));
+    localStorage.setItem('pendingCloudSync', '1');
+    setSyncStatus('Salvando na nuvem...', 'syncing');
+
+    // As gravações entram em fila, na ordem dos cliques. Nenhuma alteração
+    // posterior é descartada só porque uma anterior ainda está em trânsito.
+    _cloudSaveChain = _cloudSaveChain.catch(() => {}).then(async () => {
+        isSyncing = true;
+        try {
+            const result = await apiSaveData(snapshot);
+            lastSyncTime = new Date(result.lastUpdate || Date.now());
+            localStorage.setItem('lastSync', lastSyncTime.toISOString());
+            // Só remove o outbox se esta for a versão mais recente enviada.
+            if (sequence === _saveSequence) {
+                localStorage.removeItem('pendingCloudPayload');
+                localStorage.removeItem('pendingCloudSync');
+            }
+            setSyncStatus(`✓ Salvo na nuvem ${formatTime(lastSyncTime)}`, 'ok');
+            return true;
+        } catch (e) {
+            console.error('Erro sync:', e);
+            setSyncStatus('⚠️ Salvo neste aparelho; tentando enviar novamente', 'err');
+            return false;
+        } finally {
+            isSyncing = false;
+        }
+    });
+    return _cloudSaveChain;
 }
 
 async function manualSyncNow() {
@@ -504,43 +525,17 @@ function saveDataLocally() {
     localStorage.setItem('adminPassword', PASSWORD);
 }
 
-// Auto-sync: chama syncToCloud automaticamente após mudanças
-let _syncDebounce = null;
-function scheduleAutoSync() {
-    if (_syncDebounce) clearTimeout(_syncDebounce);
-    localStorage.setItem('pendingCloudSync', '1');
-    _syncDebounce = setTimeout(() => {
-        if (!isSyncing) syncToCloud();
-    }, 1500); // pequena espera para agrupar alterações, sem perder ao salvar
-}
+// O salvamento agora é disparado imediatamente pela função save().
+// Não há debounce nem polling de hash: sair da tela não cancela um save já iniciado.
 
-// Monitora mudanças em students e history
-function monitorDataChanges() {
-    // após qualquer save local, agenda sync
-    const origSave = window.saveDataLocally || saveDataLocally;
-    saveDataLocally = function() {
-        origSave();
-        scheduleAutoSync();
-    };
-}
-setTimeout(monitorDataChanges, 1000);
-
-
-// Monitora mudanças nos arrays para auto-sync
-let _studentsHash = '';
-let _historyHash = '';
-function _hashData() {
-    return JSON.stringify(students) + '|' + JSON.stringify(history) + '|' + PASSWORD;
-}
-setInterval(() => {
-    if (isSyncing) return;
-    const h = _hashData();
-    if (_studentsHash && h !== _studentsHash) {
-        saveDataLocally();
-        scheduleAutoSync();
-    }
-    _studentsHash = h;
-}, 2000);
+// Última proteção se o usuário sair imediatamente depois do clique.
+window.addEventListener('pagehide', () => {
+    const pending = localStorage.getItem('pendingCloudPayload');
+    if (!pending || !navigator.sendBeacon) return;
+    try {
+        navigator.sendBeacon(`${SYNC_API}/api/sync`, new Blob([pending], { type: 'application/json' }));
+    } catch (_) {}
+});
 
 // No carregamento, verifica se tem lastSync
 const lastSync = localStorage.getItem('lastSync');
@@ -607,7 +602,17 @@ if (lastSync) {
             try {
                 if (isSyncing) return;
                 isSyncing = true;
-                setSyncStatus('🔄 Sincronizando com a nuvem...', 'syncing');
+                setSyncStatus('🔄 Conferindo os dados salvos...', 'syncing');
+                const pending = localStorage.getItem('pendingCloudPayload');
+                if (pending) {
+                    try {
+                        await apiSaveData(JSON.parse(pending));
+                        localStorage.removeItem('pendingCloudPayload');
+                        localStorage.removeItem('pendingCloudSync');
+                    } catch (pendingError) {
+                        console.warn('Outbox ainda pendente:', pendingError);
+                    }
+                }
                 const data = await apiGetData();
                 if (Array.isArray(data.students)) {
                     students = data.students;
@@ -723,7 +728,7 @@ if (lastSync) {
         // ============================
         // CRUD ALUNOS
         // ============================
-        function saveStudent() {
+        async function saveStudent() {
             const id = document.getElementById("studentId").value;
             const currentPayment = document.getElementById("payment").value;
 
@@ -764,8 +769,12 @@ if (lastSync) {
                 students.push(s);
             }
 
-            save();
-            alert("Salvo!");
+            const saved = await save();
+            if (saved === false) {
+                alert('Cadastro guardado neste aparelho e será enviado assim que a conexão voltar.');
+            } else {
+                alert('Salvo na nuvem!');
+            }
             clearForm();
         }
 
@@ -877,8 +886,9 @@ if (lastSync) {
         function save() {
             // Nunca apaga o histórico ao salvar um aluno.
             saveDataLocally();
-            scheduleAutoSync();
             refreshAll();
+            // A requisição começa neste clique, sem esperar timer.
+            return syncToCloud();
         }
 
         // ============================
