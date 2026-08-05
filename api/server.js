@@ -123,6 +123,17 @@ function validateData(data) {
   return Array.isArray(data.students) && Array.isArray(data.history);
 }
 
+function deduplicateExactStudents(students) {
+  const seen = new Set();
+  return students.filter(student => {
+    const { id, ...withoutId } = student || {};
+    const signature = JSON.stringify(withoutId, Object.keys(withoutId).sort());
+    if (seen.has(signature)) return false;
+    seen.add(signature);
+    return true;
+  });
+}
+
 const server = http.createServer(async (req, res) => {
   const origin = req.headers.origin || '';
   if (req.method === 'OPTIONS') {
@@ -148,7 +159,7 @@ const server = http.createServer(async (req, res) => {
         return send(res, 400, { ok: false, error: 'students e history são obrigatórios' }, origin);
       }
       const clean = {
-        students: data.students,
+        students: deduplicateExactStudents(data.students),
         history: data.history,
         password: typeof data.password === 'string' ? data.password : '123456',
         lastUpdate: new Date().toISOString()
