@@ -1813,10 +1813,16 @@
       "due": "2026-09-03",
       "payment": "Pago",
       "evaluations": [],
-      "paymentHistory": []
+      "paymentHistory": [
+        {
+          "month": "AGOSTO DE 2026",
+          "value": "69.90",
+          "date": "2026-08-05"
+        }
+      ]
     }
   ],
   "history": [],
   "password": "123456",
-  "lastUpdate": "2026-08-05T14:57:20.070Z"
+  "lastUpdate": "2026-08-05T15:00:38.109Z"
 }
