@@ -528,14 +528,7 @@ function saveDataLocally() {
 // O salvamento agora é disparado imediatamente pela função save().
 // Não há debounce nem polling de hash: sair da tela não cancela um save já iniciado.
 
-// Última proteção se o usuário sair imediatamente depois do clique.
-window.addEventListener('pagehide', () => {
-    const pending = localStorage.getItem('pendingCloudPayload');
-    if (!pending || !navigator.sendBeacon) return;
-    try {
-        navigator.sendBeacon(`${SYNC_API}/api/sync`, new Blob([pending], { type: 'application/json' }));
-    } catch (_) {}
-});
+// A requisição usa fetch keepalive; não é enviado um segundo snapshot ao sair.
 
 // No carregamento, verifica se tem lastSync
 const lastSync = localStorage.getItem('lastSync');
@@ -728,7 +721,22 @@ if (lastSync) {
         // ============================
         // CRUD ALUNOS
         // ============================
+        let _studentSaveLocked = false;
+
         async function saveStudent() {
+            if (_studentSaveLocked) return;
+            _studentSaveLocked = true;
+            const saveButton = document.getElementById('btnSave');
+            if (saveButton) saveButton.disabled = true;
+            try {
+                return await saveStudentInternal();
+            } finally {
+                _studentSaveLocked = false;
+                if (saveButton) saveButton.disabled = false;
+            }
+        }
+
+        async function saveStudentInternal() {
             const id = document.getElementById("studentId").value;
             const currentPayment = document.getElementById("payment").value;
 
@@ -744,6 +752,21 @@ if (lastSync) {
                         value: document.getElementById("value").value,
                         date: date.toISOString().split('T')[0]
                     });
+                }
+            }
+
+            if (!id) {
+                const normalizedPhone = document.getElementById('phone').value.replace(/\D/g, '');
+                const duplicate = students.find(existing =>
+                    existing.name === document.getElementById('name').value.toUpperCase().trim() &&
+                    String(existing.phone || '').replace(/\D/g, '') === normalizedPhone &&
+                    existing.due === document.getElementById('due').value &&
+                    existing.plan === document.getElementById('plan').value.toUpperCase().trim() &&
+                    String(existing.value) === String(document.getElementById('value').value)
+                );
+                if (duplicate) {
+                    document.getElementById('studentId').value = duplicate.id;
+                    return saveStudentInternal();
                 }
             }
 
