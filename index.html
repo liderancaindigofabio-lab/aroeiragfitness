@@ -770,6 +770,12 @@ if (lastSync) {
                 }
             }
 
+            const newPaymentHistory = !id && currentPayment === "Pago" ? [{
+                month: new Date().toLocaleString('pt-BR', { month: 'long', year: 'numeric' }).toUpperCase(),
+                value: document.getElementById("value").value,
+                date: new Date().toISOString().split('T')[0]
+            }] : [];
+
             const s = {
                 id: id ? Number(id) : Date.now(),
                 name: document.getElementById("name").value.toUpperCase().trim(),
@@ -780,7 +786,7 @@ if (lastSync) {
                 due: document.getElementById("due").value,
                 payment: currentPayment,
                 evaluations: id ? (students.find(x => x.id === Number(id)).evaluations || []) : [],
-                paymentHistory: id ? (students.find(x => x.id === Number(id)).paymentHistory || []) : []
+                paymentHistory: id ? (students.find(x => x.id === Number(id)).paymentHistory || []) : newPaymentHistory
             };
 
             if(!s.name) return alert("Nome obrigatório!");
@@ -1030,11 +1036,13 @@ if (lastSync) {
             const entries = [];
             students.forEach(s => {
                 if (!s.paymentHistory) return;
-                s.paymentHistory.forEach(p => {
+                s.paymentHistory.forEach((p, paymentIndex) => {
                     entries.push({
-                        entryId: `${s.id}_${p.date}_${entries.length}`,
+                        entryId: `${s.id}_${p.date}_${paymentIndex}`,
                         studentId: s.id,
+                        paymentIndex,
                         studentName: s.name,
+                        plan: s.plan,
                         date: p.date,
                         value: Number(p.value),
                         month: p.month
@@ -1066,7 +1074,7 @@ if (lastSync) {
                     <td style="font-size:0.7rem; color:var(--gray-metal);">${e.month || '-'}</td>
                     <td style="text-align:center;">${formatDate(e.date)}</td>
                     <td style="color:#00c853; font-weight:bold;">R$ ${e.value.toFixed(2).replace('.', ',')}</td>
-                    <td style="text-align:center;"><button class="action-btn" onclick="deletePaymentEntry(${e.studentId}, '${e.date}')" style="background:#ff1744">EXCLUIR</button></td>
+                    <td style="text-align:center;"><button class="action-btn" onclick="deletePaymentEntry(${e.studentId}, ${e.paymentIndex})" style="background:#ff1744">EXCLUIR</button></td>
                 </tr>`;
             });
 
@@ -1079,14 +1087,14 @@ if (lastSync) {
 
         // Exclui um lançamento específico do histórico de um aluno.
         // Ao excluir, os cards Dia/Mês/Ano recalculam automaticamente.
-        function deletePaymentEntry(studentId, date) {
+        function deletePaymentEntry(studentId, paymentIndex) {
             const s = students.find(x => x.id === studentId);
-            if (!s || !s.paymentHistory) return;
-            if (!confirm(`Excluir o lançamento de ${formatDate(date)} do aluno ${s.name}?\n\nIsso vai descontar o valor dos totais do Dia/Mês/Ano.`)) return;
+            if (!s || !s.paymentHistory || !s.paymentHistory[paymentIndex]) return;
+            const payment = s.paymentHistory[paymentIndex];
+            if (!confirm(`Excluir o lançamento de ${formatDate(payment.date)} do aluno ${s.name}?\n\nIsso vai descontar o valor dos totais do Dia/Mês/Ano.`)) return;
 
-            // remove APENAS o lançamento com a data especificada (primeira ocorrência)
-            const idx = s.paymentHistory.findIndex(p => p.date === date);
-            if (idx >= 0) s.paymentHistory.splice(idx, 1);
+            // Remove exatamente o lançamento selecionado, mesmo que haja dois no mesmo dia.
+            s.paymentHistory.splice(paymentIndex, 1);
 
             // se era o último pagamento e o aluno estava "Pago", reverte pra Pendente
             if (s.paymentHistory.length === 0) s.payment = "Pendente";
@@ -1378,21 +1386,16 @@ if (lastSync) {
 
         function showDailySales() {
             const today = getTodayISO();
-            const pagos = students.filter(s =>
-                s.payment === "Pago" && s.paymentHistory && s.paymentHistory.length &&
-                s.paymentHistory.some(p => p.date === today)
-            );
+            const entries = getAllPaymentEntries().filter(e => e.date === today);
+            let total = entries.reduce((sum, e) => sum + Number(e.value || 0), 0);
 
-            let total = 0;
             let html = `<p style="margin-bottom:15px; color:var(--gray-metal);">Pagamentos confirmados hoje (${formatDate(today)}):</p>`;
-            if (pagos.length === 0) {
+            if (entries.length === 0) {
                 html += `<p style="opacity:0.5; text-align:center; padding:30px;">Nenhum pagamento confirmado hoje ainda.</p>`;
             } else {
                 html += '<table><thead><tr><th>ALUNO</th><th>VALOR</th></tr></thead><tbody>';
-                pagos.forEach(s => {
-                    const v = Number(s.value);
-                    total += v;
-                    html += `<tr><td style="text-transform:uppercase;">${s.name}</td><td style="color:#4fc3f7; font-weight:bold;">R$ ${v.toFixed(2).replace('.', ',')}</td></tr>`;
+                entries.forEach(e => {
+                    html += `<tr><td style="text-transform:uppercase;">${e.studentName}</td><td style="color:#4fc3f7; font-weight:bold;">R$ ${Number(e.value).toFixed(2).replace('.', ',')}</td></tr>`;
                 });
                 html += `</tbody></table>`;
                 html += `<div style="margin-top:20px; padding:15px; background:#1a1a1a; border-left:3px solid #4fc3f7; text-align:right;"><b style="color:var(--gold-primary);">TOTAL DO DIA:</b> <span style="font-size:1.5rem; color:#4fc3f7; font-weight:bold;">R$ ${total.toFixed(2).replace('.', ',')}</span></div>`;
@@ -1446,11 +1449,17 @@ if (lastSync) {
         function renderMonthlyChart() {
             const ctx = document.getElementById('monthlyChart');
             if (!ctx) return;
-            const pagos = students.filter(s => s.payment === "Pago");
+            const now = new Date();
+            const currentYear = now.getFullYear();
+            const currentMonth = now.getMonth() + 1;
             const grupos = {};
-            pagos.forEach(s => {
-                const plano = s.plan || "OUTROS";
-                grupos[plano] = (grupos[plano] || 0) + Number(s.value);
+            students.forEach(s => {
+                (s.paymentHistory || []).forEach(p => {
+                    const parts = String(p.date || '').split('-');
+                    if (Number(parts[0]) !== currentYear || Number(parts[1]) !== currentMonth) return;
+                    const plano = s.plan || "OUTROS";
+                    grupos[plano] = (grupos[plano] || 0) + Number(p.value || 0);
+                });
             });
             const labels = Object.keys(grupos);
             const valores = Object.values(grupos);
