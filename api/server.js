@@ -22,7 +22,13 @@ function corsHeaders(origin) {
 
 function send(res, status, body, origin) {
   const payload = JSON.stringify(body);
-  res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Content-Length': Buffer.byteLength(payload), ...corsHeaders(origin) });
+  res.writeHead(status, {
+    'Content-Type': 'application/json; charset=utf-8',
+    'Content-Length': Buffer.byteLength(payload),
+    'Cache-Control': 'no-store',
+    'Connection': 'keep-alive',
+    ...corsHeaders(origin)
+  });
   res.end(payload);
 }
 
@@ -32,8 +38,9 @@ function githubUrl(path) {
 
 async function githubGet() {
   if (!GH_TOKEN) throw new Error('GITHUB_TOKEN ausente no servidor');
-  const response = await fetch(`${githubUrl(GH_FILE)}?ref=${GH_BRANCH}`, {
-    headers: { Authorization: `Bearer ${GH_TOKEN}`, Accept: 'application/vnd.github+json', 'User-Agent': 'aroeira-gfitness-sync' }
+  const response = await fetch(`${githubUrl(GH_FILE)}?ref=${GH_BRANCH}&t=${Date.now()}`, {
+    headers: { Authorization: `Bearer ${GH_TOKEN}`, Accept: 'application/vnd.github+json', 'User-Agent': 'aroeira-gfitness-sync' },
+    cache: 'no-store'
   });
   if (!response.ok) throw new Error(`GitHub GET ${response.status}`);
   const file = await response.json();
@@ -57,17 +64,41 @@ async function githubPut(data, sha) {
   return response.json();
 }
 
+// Mantém o SHA na memória para que cada salvamento não precise fazer
+// GET + PUT no GitHub. O GitHub continua sendo o armazenamento persistente,
+// mas o caminho normal fica muito mais rápido e serializado.
+let cachedData = null;
+let cachedSha = null;
 let writeQueue = Promise.resolve();
+
+async function loadLatest() {
+  if (cachedData && cachedSha) return { data: cachedData, sha: cachedSha };
+  const latest = await githubGet();
+  cachedData = latest.data;
+  cachedSha = latest.sha;
+  return latest;
+}
+
 function queueWrite(data) {
   const job = writeQueue.then(async () => {
-    let latest = await githubGet();
+    let latest = await loadLatest();
     try {
-      return await githubPut(data, latest.sha);
+      const result = await githubPut(data, latest.sha);
+      cachedData = data;
+      cachedSha = result.content && result.content.sha ? result.content.sha : null;
+      // Se o retorno não trouxer SHA, força um GET antes do próximo PUT.
+      if (!cachedSha) await loadLatest();
+      return result;
     } catch (error) {
-      // Se outra tela salvou antes, busca o SHA novo e tenta uma vez mais.
+      // Se outra instância/tela salvou antes, recupera o SHA e tenta uma vez.
       if (!String(error.message).includes('409')) throw error;
-      latest = await githubGet();
-      return githubPut(data, latest.sha);
+      cachedData = null;
+      cachedSha = null;
+      latest = await loadLatest();
+      const result = await githubPut(data, latest.sha);
+      cachedData = data;
+      cachedSha = result.content && result.content.sha ? result.content.sha : null;
+      return result;
     }
   });
   writeQueue = job.catch(() => {});
@@ -88,6 +119,10 @@ function readBody(req) {
   });
 }
 
+function validateData(data) {
+  return Array.isArray(data.students) && Array.isArray(data.history);
+}
+
 const server = http.createServer(async (req, res) => {
   const origin = req.headers.origin || '';
   if (req.method === 'OPTIONS') {
@@ -98,15 +133,18 @@ const server = http.createServer(async (req, res) => {
   try {
     const pathname = new URL(req.url, `http://${req.headers.host || 'localhost'}`).pathname;
     if (req.method === 'GET' && pathname === '/') {
-      return send(res, 200, { ok: true, service: 'aroeira-gfitness-sync', version: '1.0.1' }, origin);
+      return send(res, 200, { ok: true, service: 'aroeira-gfitness-sync', version: '2.0.0', storage: 'github-persistent-cache' }, origin);
+    }
+    if (req.method === 'GET' && pathname === '/api/health') {
+      return send(res, 200, { ok: true, storageReady: Boolean(cachedData && cachedSha), queue: 'serialized' }, origin);
     }
     if (req.method === 'GET' && pathname === '/api/sync') {
-      const result = await githubGet();
+      const result = await loadLatest();
       return send(res, 200, { ok: true, ...result.data }, origin);
     }
     if (req.method === 'POST' && pathname === '/api/sync') {
       const data = await readBody(req);
-      if (!Array.isArray(data.students) || !Array.isArray(data.history)) {
+      if (!validateData(data)) {
         return send(res, 400, { ok: false, error: 'students e history são obrigatórios' }, origin);
       }
       const clean = {
@@ -116,7 +154,7 @@ const server = http.createServer(async (req, res) => {
         lastUpdate: new Date().toISOString()
       };
       await queueWrite(clean);
-      return send(res, 200, { ok: true, lastUpdate: clean.lastUpdate }, origin);
+      return send(res, 200, { ok: true, lastUpdate: clean.lastUpdate, students: clean.students.length }, origin);
     }
     return send(res, 404, { ok: false, error: 'NOT_FOUND' }, origin);
   } catch (error) {
@@ -125,4 +163,6 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-server.listen(PORT, () => console.log(`Aroeira sync API ouvindo na porta ${PORT}`));
+server.keepAliveTimeout = 65000;
+server.headersTimeout = 66000;
+server.listen(PORT, () => console.log(`Aroeira sync API v2 ouvindo na porta ${PORT}`));
