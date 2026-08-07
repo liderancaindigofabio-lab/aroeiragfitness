@@ -1820,9 +1820,27 @@
           "date": "2026-08-05"
         }
       ]
+    },
+    {
+      "id": 1786130441489,
+      "name": "JEANE DOS REIS DA SILVA",
+      "email": "Jeosilva2115@gmail.com",
+      "phone": "75983652559",
+      "plan": "MENSAL",
+      "value": "69.90",
+      "due": "2026-07-27",
+      "payment": "Pago",
+      "evaluations": [],
+      "paymentHistory": [
+        {
+          "month": "AGOSTO DE 2026",
+          "value": "69.90",
+          "date": "2026-08-07"
+        }
+      ]
     }
   ],
   "history": [],
   "password": "123456",
-  "lastUpdate": "2026-08-07T19:17:32.282Z"
+  "lastUpdate": "2026-08-07T19:20:53.537Z"
 }
