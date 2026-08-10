@@ -1460,7 +1460,7 @@
       "phone": "(75) 9826-12796",
       "plan": "PLANO MENSAL",
       "value": "69.9",
-      "due": "2026-08-11",
+      "due": "2026-09-11",
       "payment": "Pago",
       "evaluations": [],
       "paymentHistory": [
@@ -1847,5 +1847,5 @@
   ],
   "history": [],
   "password": "123456",
-  "lastUpdate": "2026-08-10T12:26:47.524Z"
+  "lastUpdate": "2026-08-10T12:48:26.807Z"
 }
