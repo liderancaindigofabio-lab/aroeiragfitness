@@ -315,13 +315,12 @@
       "name": "ELIANE DE JESUS OLIVEIRA",
       "email": "eo6493027@gmail.com",
       "phone": "(75) 9811-60175",
-      "plan": "SEM PLANO",
-      "value": 0,
-      "due": null,
-      "payment": "Sem Data",
-      "paymentHistory": [],
+      "plan": "MENSAL",
+      "value": "69.90",
+      "due": "",
+      "payment": "Pendente",
       "evaluations": [],
-      "gymHistory": []
+      "paymentHistory": []
     },
     {
       "id": 22,
@@ -1842,5 +1841,5 @@
   ],
   "history": [],
   "password": "123456",
-  "lastUpdate": "2026-08-10T09:43:03.380Z"
+  "lastUpdate": "2026-08-10T12:25:31.784Z"
 }
