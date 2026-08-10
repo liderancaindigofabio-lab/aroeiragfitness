@@ -538,13 +538,18 @@
       "name": "GLEIDE RAIANY SILVA DE JESUS",
       "email": "raianysilvadejesus58@gmail.com",
       "phone": "(75) 9836-78404",
-      "plan": "PLANO 1° MÊS",
-      "value": 59.9,
-      "due": "2026-06-30",
-      "payment": "Vencido",
-      "paymentHistory": [],
+      "plan": "MENSAL",
+      "value": "69.90",
+      "due": "2026-09-03",
+      "payment": "Pago",
       "evaluations": [],
-      "gymHistory": []
+      "paymentHistory": [
+        {
+          "month": "AGOSTO DE 2026",
+          "value": "69.90",
+          "date": "2026-08-10"
+        }
+      ]
     },
     {
       "id": 37,
@@ -1847,5 +1852,5 @@
   ],
   "history": [],
   "password": "123456",
-  "lastUpdate": "2026-08-10T16:38:01.834Z"
+  "lastUpdate": "2026-08-10T16:49:55.470Z"
 }
