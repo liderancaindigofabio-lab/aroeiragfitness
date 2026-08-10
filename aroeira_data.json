@@ -1669,7 +1669,7 @@
       "phone": "(75) 9911-06162",
       "plan": "PLANO MENSAL",
       "value": "69.9",
-      "due": "2026-08-05",
+      "due": "2026-09-05",
       "payment": "Pago",
       "evaluations": [],
       "paymentHistory": [
@@ -1847,5 +1847,5 @@
   ],
   "history": [],
   "password": "123456",
-  "lastUpdate": "2026-08-10T12:48:26.807Z"
+  "lastUpdate": "2026-08-10T16:38:01.834Z"
 }
