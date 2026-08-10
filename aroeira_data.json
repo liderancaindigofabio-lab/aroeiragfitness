@@ -348,7 +348,7 @@
       "phone": "(75) 9982-49985",
       "plan": "PLANO MENSAL",
       "value": "69.9",
-      "due": "2026-08-13",
+      "due": "2026-09-13",
       "payment": "Pago",
       "evaluations": [],
       "paymentHistory": [
@@ -1842,5 +1842,5 @@
   ],
   "history": [],
   "password": "123456",
-  "lastUpdate": "2026-08-07T19:20:53.537Z"
+  "lastUpdate": "2026-08-10T09:43:03.380Z"
 }
