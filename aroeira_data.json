@@ -317,10 +317,16 @@
       "phone": "(75) 9811-60175",
       "plan": "MENSAL",
       "value": "69.90",
-      "due": "",
-      "payment": "Pendente",
+      "due": "2026-09-10",
+      "payment": "Pago",
       "evaluations": [],
-      "paymentHistory": []
+      "paymentHistory": [
+        {
+          "month": "AGOSTO DE 2026",
+          "value": "69.90",
+          "date": "2026-08-10"
+        }
+      ]
     },
     {
       "id": 22,
@@ -1841,5 +1847,5 @@
   ],
   "history": [],
   "password": "123456",
-  "lastUpdate": "2026-08-10T12:25:31.784Z"
+  "lastUpdate": "2026-08-10T12:26:47.524Z"
 }
