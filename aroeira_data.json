@@ -59,7 +59,7 @@
       "name": "ANA LUIZA SANTOS SILVA",
       "email": "santoslimaanna773@gmail.com",
       "phone": "(75) 9836-02371",
-      "plan": "CR����DITO 15 DIAS",
+      "plan": "CR������DITO 15 DIAS",
       "value": 0,
       "due": "2026-04-16",
       "payment": "Atrasado",
@@ -1273,7 +1273,7 @@
       "phone": "(75) 9983-23119",
       "plan": "PLANO MENSAL",
       "value": "69.9",
-      "due": "2026-07-25",
+      "due": "2026-08-25",
       "payment": "Pago",
       "evaluations": [],
       "paymentHistory": [
@@ -1851,5 +1851,5 @@
   ],
   "history": [],
   "password": "123456",
-  "lastUpdate": "2026-08-11T17:23:29.995Z"
+  "lastUpdate": "2026-08-11T19:33:05.705Z"
 }
