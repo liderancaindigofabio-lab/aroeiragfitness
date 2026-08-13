@@ -1614,7 +1614,7 @@
       "phone": "(75) 9832-24278",
       "plan": "PLANO MENSAL",
       "value": "69.9",
-      "due": "2026-08-13",
+      "due": "2026-09-13",
       "payment": "Pago",
       "evaluations": [],
       "paymentHistory": [
@@ -1851,5 +1851,5 @@
   ],
   "history": [],
   "password": "123456",
-  "lastUpdate": "2026-08-12T18:55:36.752Z"
+  "lastUpdate": "2026-08-13T23:38:20.093Z"
 }
