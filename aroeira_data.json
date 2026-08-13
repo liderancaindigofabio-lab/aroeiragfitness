@@ -25,7 +25,7 @@
       "phone": "(75) 9914-85206",
       "plan": "PLANO MENSAL",
       "value": "69.9",
-      "due": "2026-08-07",
+      "due": "2026-08-22",
       "payment": "Pago",
       "evaluations": [],
       "paymentHistory": [
@@ -1851,5 +1851,5 @@
   ],
   "history": [],
   "password": "123456",
-  "lastUpdate": "2026-08-13T23:39:27.603Z"
+  "lastUpdate": "2026-08-13T23:41:16.529Z"
 }
