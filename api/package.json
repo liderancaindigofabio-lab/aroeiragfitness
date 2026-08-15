@@ -1,7 +1,8 @@
 {
-  "name": "aroeira-gfitness-sync",
-  "version": "1.0.0",
+  "name": "aroeira-gfitness-api",
+  "version": "3.0.0",
   "private": true,
-  "engines": { "node": ">=18" },
+  "description": "API segura de sincronização do Aroeira G Fitness",
+  "engines": { "node": ">=18.20.0" },
   "scripts": { "start": "node server.js" }
 }

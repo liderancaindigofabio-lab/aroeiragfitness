@@ -1,0 +1,9 @@
+.DS_Store
+.env
+.env.*
+node_modules/
+*.log
+
+# Dados privados da academia — NUNCA publicar em repositório público
+private-data/aroeira_data.json
+*.local.json
