@@ -31,6 +31,8 @@ function todayISO() { return new Date().toISOString().slice(0,10); }
 function monthKey(iso) { return String(iso || '').slice(0,7); }
 function monthLabel(iso) { const d=dateObj(iso); return d ? d.toLocaleDateString('pt-BR',{month:'long',year:'numeric'}).toUpperCase() : 'SEM DATA'; }
 function daysUntil(iso) { const d=dateObj(iso); const t=dateObj(todayISO()); return d ? Math.round((d-t)/86400000) : null; }
+function addDays(iso, amount) { const d=dateObj(iso); if(!d)return ''; d.setDate(d.getDate()+amount); return d.toISOString().slice(0,10); }
+function addMonthsPreserveDay(iso, amount=1) { const d=dateObj(iso); if(!d)return ''; const day=d.getDate(); d.setDate(1); d.setMonth(d.getMonth()+amount); const last=new Date(d.getFullYear(),d.getMonth()+1,0).getDate(); d.setDate(Math.min(day,last)); return d.toISOString().slice(0,10); }
 function parseMoney(v) { let raw=String(v??'').replace(/R\$\s?/gi,'').trim(); if(raw.includes(',')) raw=raw.replace(/\./g,'').replace(',','.'); const n=Number(raw); return Number.isFinite(n)?Number(n.toFixed(2)):0; }
 function normalizePlan(v) { const s=String(v??'').trim(); if(!s)return ''; if(/CR.*DITO\s*15\s*DIAS/i.test(s))return 'CRÉDITO 15 DIAS'; return s.replace(/\s+/g,' ').toUpperCase(); }
 function normalizeStudent(s) { return {...s, name:String(s?.name??'').trim().toUpperCase(), plan:normalizePlan(s?.plan), value:parseMoney(s?.value), email:String(s?.email??'').trim(), phone:String(s?.phone??'').trim(), due:/^\d{4}-\d{2}-\d{2}$/.test(String(s?.due??''))?String(s.due):'', evaluations:Array.isArray(s?.evaluations)?s.evaluations:[], paymentHistory:Array.isArray(s?.paymentHistory)?s.paymentHistory:[], gymHistory:Array.isArray(s?.gymHistory)?s.gymHistory:[]}; }
@@ -38,15 +40,11 @@ function normalizeState(data) { state.students=Array.isArray(data?.students)?dat
 function statusFor(student) {
   const diff=daysUntil(student?.due);
   if(diff===null)return {label:'Sem data',tone:'gray'};
-  if(diff>=2)return {label:'Em Dia',tone:'green'};
-  if(diff===1)return {label:'Pendente',tone:'orange'};
-  if(diff>=-29)return {label:'Vencido',tone:'red'};
+  if(diff>=0)return {label:'Em Dia',tone:'green'};
+  if(diff>=-30)return {label:'Vencido',tone:'red'};
   return {label:'Atrasado',tone:'red'};
 }
-function displayStatus(student) {
-  if(String(student?.payment||'').toLowerCase()==='pago') return {label:'Pago',tone:'green'};
-  return statusFor(student);
-}
+function displayStatus(student) { return statusFor(student); }
 function latestPayment(student) {
   return [...(student?.paymentHistory||[])].filter(p=>p?.date).sort((a,b)=>String(b.date).localeCompare(String(a.date)))[0] || null;
 }
@@ -151,12 +149,32 @@ function nextId(){return state.students.reduce((max,s)=>Math.max(max,Number(s.id
 async function saveAndRefresh(message){ saveCache();renderAll();toast(message);await persistCloud(); }
 function editStudent(id){const s=state.students.find(x=>String(x.id)===String(id));if(s)openStudentForm(s);}
 function deleteStudent(id){const s=state.students.find(x=>String(x.id)===String(id));if(!s)return;openConfirm('Excluir aluno?',`O aluno ${s.name} e todo o histórico dele serão removidos. Essa ação não pode ser desfeita.`,async()=>{state.students=state.students.filter(x=>String(x.id)!==String(id));await saveAndRefresh('Aluno excluído.');});}
-function confirmPayment(){const s=state.students.find(x=>String(x.id)===String(activeStudentId));if(!s)return;const amount=s.value;openConfirm('Confirmar pagamento?',`Registrar ${money(amount)} para ${s.name} na data de hoje.`,async()=>{if(!s.paymentHistory)s.paymentHistory=[];s.paymentHistory.push({month:monthLabel(todayISO()),value:amount,date:todayISO()});s.payment='Pago';await saveAndRefresh('Pagamento confirmado.');renderProfile();});}
+function confirmPayment(){const s=state.students.find(x=>String(x.id)===String(activeStudentId));if(!s)return;const amount=s.value;openConfirm('Confirmar pagamento?',`Registrar ${money(amount)} para ${s.name} e avançar o vencimento em um mês?`,async()=>{const paidAt=todayISO();if(!s.paymentHistory)s.paymentHistory=[];s.paymentHistory.push({month:monthLabel(paidAt),value:amount,date:paidAt});s.payment='Pago';s.due=addMonthsPreserveDay(s.due||paidAt,1);await saveAndRefresh('Pagamento confirmado. Próximo vencimento atualizado.');renderProfile();});}
 function deletePayment(index){const s=state.students.find(x=>String(x.id)===String(activeStudentId));if(!s||!s.paymentHistory)return;const payments=[...s.paymentHistory].sort((a,b)=>String(b.date).localeCompare(String(a.date)));const target=payments[index];if(!target)return;const realIndex=s.paymentHistory.indexOf(target);openConfirm('Excluir pagamento?',`Remover ${money(target.value)} de ${s.name}?`,async()=>{s.paymentHistory.splice(realIndex,1);if(!s.paymentHistory)s.paymentHistory=[];if(!s.paymentHistory.length&&s.payment==='Pago')s.payment='Pendente';await saveAndRefresh('Pagamento excluído.');renderProfile();});}
 function addEvaluation(e){e.preventDefault();const s=state.students.find(x=>String(x.id)===String(activeStudentId));if(!s)return;const date=$('ev_date').value;if(!date){toast('Informe a data da avaliação.','error');return;}const ev={id:Date.now(),date};['peso','busto','cintura','barriga','quadril','perna','braco','imc','gordura','massa','visceral','basal','idade'].forEach(k=>ev[k]=$(('ev_'+k))?.value||'');if(!s.evaluations)s.evaluations=[];s.evaluations.unshift(ev);saveAndRefresh('Avaliação salva.');renderProfile();}
 function deleteEvaluation(index){const s=state.students.find(x=>String(x.id)===String(activeStudentId));if(!s||!s.evaluations)return;const evals=[...s.evaluations].sort((a,b)=>String(b.date).localeCompare(String(a.date)));const target=evals[index];const real=s.evaluations.indexOf(target);openConfirm('Excluir avaliação?',`Excluir a avaliação de ${formatDate(target.date)}?`,async()=>{s.evaluations.splice(real,1);await saveAndRefresh('Avaliação excluída.');renderProfile();});}
 function whatsapp(id){const s=state.students.find(x=>String(x.id)===String(id));if(!s?.phone){toast('Este aluno não possui telefone.','error');return;}const digits=s.phone.replace(/\D/g,'');const text=encodeURIComponent(`Olá, ${s.name.split(' ')[0]}! Aqui é da Aroeira G Fitness.`);window.open(`https://wa.me/55${digits}?text=${text}`,'_blank','noopener');}
 function generatePix(){const s=state.students.find(x=>String(x.id)===String(activeStudentId));if(!s)return;const key='24382911000199',name='GILVA SANTOS ALMEIDA',city='PE DE SERRA',value=Number(s.value||0).toFixed(2);const payload=pixPayload(key,name,city,value,'MENSALIDADE');const area=$('pixArea');area.innerHTML=`<div class="profile-section" style="text-align:center"><h3>PIX copia e cola</h3><div id="qrcode" style="display:grid;place-items:center;background:#fff;padding:14px;border-radius:12px;width:max-content;margin:0 auto 12px"></div><textarea id="pixText" readonly style="width:100%;min-height:76px;background:#08090b;border:1px solid var(--border);color:#ddd;border-radius:10px;padding:10px;font-size:10px">${escapeHtml(payload)}</textarea><button class="secondary-btn" id="copyPixBtn" style="margin-top:10px">Copiar código</button><button class="primary-btn" id="confirmPaymentBtn" style="margin-top:10px;width:100%">Confirmar recebimento</button></div>`;if(window.QRCode)new QRCode($('qrcode'),{text:payload,width:170,height:170,colorDark:'#000',colorLight:'#fff'});}
+
+function overdueStudents(){ return state.students.filter(s=>['Vencido','Atrasado'].includes(statusFor(s).label)).sort((a,b)=>String(a.due||'').localeCompare(String(b.due||''))); }
+function reminderMessage(student){
+  const status=statusFor(student).label;
+  if(status==='Vencido'){
+    const pix=pixPayload('24382911000199','GILVA SANTOS ALMEIDA','PE DE SERRA',Number(student.value||0).toFixed(2),'MENSALIDADE');
+    return `*MENSAGEM AUTOMÁTICA*\n\nOlá! Seu vencimento de matrícula é dia ${formatDate(student.due)}. Não perca o ritmo, continue focado(a) nos seus objetivos 💪\n\nSegue o código cópia e cola.\n${pix}\nPara pagamento em cartão, digitar "cartão".\n\nDigite *"Não"* para não receber mais este lembrete.`;
+  }
+  return `Olá, tudo bem? 😊\n\nFaz um tempinho que não te vemos por aqui, e sentimos sua falta!\nNão perca o ritmo, volte hoje mesmo e aproveite 10% de desconto na mensalidade.\n\n📅 Promoção válida até ${formatDate(addDays(todayISO(),3))}.`;
+}
+function openReminder(studentId){
+  const s=state.students.find(x=>String(x.id)===String(studentId)); if(!s?.phone)return;
+  const digits=String(s.phone).replace(/\D/g,''); if(!digits){toast('Este aluno não possui telefone válido.','error');return;}
+  window.open(`https://wa.me/55${digits}?text=${encodeURIComponent(reminderMessage(s))}`,'_blank','noopener');
+}
+function renderOverdueModal(){
+  const list=overdueStudents();
+  $('overdueList').innerHTML=list.length?list.map(s=>{const st=statusFor(s); return `<div class="overdue-row"><div class="list-main"><strong>${escapeHtml(s.name)}</strong><small>${badge(st)} · venceu em ${formatDate(s.due)}</small></div><button class="secondary-btn" data-reminder-id="${s.id}" ${s.phone?'':'disabled'}>WhatsApp</button></div>`;}).join(''):'<div class="empty"><p>Nenhum aluno vencido ou atrasado.</p></div>';
+  openModal('overdueModal');
+}
 function pixPayload(key,name,city,value,desc){const f=(id,val)=>id+String(val.length).padStart(2,'0')+val;const gui='br.gov.bcb.pix';let merchant=f('00',gui)+f('01',key)+f('02',desc.slice(0,25));let p=f('00','01')+f('26',merchant)+f('52','0000')+f('53','986')+f('54',value)+f('58','BR')+f('59',name.slice(0,25))+f('60',city.slice(0,15))+f('62',f('05','***'));return p+'6304'+crc16(p);}
 function crc16(str){let crc=0xffff;for(let i=0;i<str.length;i++){crc^=str.charCodeAt(i)<<8;for(let j=0;j<8;j++)crc=(crc&0x8000)?((crc<<1)^0x1021)&0xffff:(crc<<1)&0xffff;}return crc.toString(16).toUpperCase().padStart(4,'0');}
 async function copyPix(){const el=$('pixText');if(!el)return;try{await navigator.clipboard.writeText(el.value);toast('Código Pix copiado.');}catch{el.select();document.execCommand('copy');toast('Código Pix copiado.');}}
@@ -168,6 +186,8 @@ async function changePassword(){const current=prompt('Digite a senha atual:');if
 
 $('loginForm').addEventListener('submit',async e=>{e.preventDefault();$('loginError').classList.add('hidden');try{await login($('user').value.trim(),$('pass').value);showApp();if(!loadCache())setSyncStatus('Carregando dados...','warn');await syncNow(false);if(!state.students.length && !loadCache())toast('A conta está sem dados cadastrados.','error');renderAll();}catch(error){$('loginError').textContent=error.status===401?'Usuário ou senha inválidos.':'Não foi possível conectar ao servidor.';$('loginError').classList.remove('hidden');}});
 $('logoutBtn').addEventListener('click',()=>logout());
+$('kpiLate').addEventListener('click',renderOverdueModal);
+$('overdueList').addEventListener('click',e=>{const b=e.target.closest('[data-reminder-id]');if(b)openReminder(b.dataset.reminderId);});
 $('syncBtn').addEventListener('click',()=>syncNow(true));
 $('menuBtn').addEventListener('click',()=>$('sidebar').classList.toggle('open'));
 qsa('.nav-item[data-tab]').forEach(btn=>btn.addEventListener('click',()=>switchTab(btn.dataset.tab)));
