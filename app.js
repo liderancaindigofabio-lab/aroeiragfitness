@@ -13,6 +13,7 @@ let revenueChart = null;
 let confirmHandler = null;
 let toastTimer = null;
 let syncBusy = false;
+let overdueFilter = 'all';
 
 const $ = id => document.getElementById(id);
 const qs = (sel, root = document) => root.querySelector(sel);
@@ -156,7 +157,7 @@ function deleteEvaluation(index){const s=state.students.find(x=>String(x.id)===S
 function whatsapp(id){const s=state.students.find(x=>String(x.id)===String(id));if(!s?.phone){toast('Este aluno não possui telefone.','error');return;}const digits=s.phone.replace(/\D/g,'');const text=encodeURIComponent(`Olá, ${s.name.split(' ')[0]}! Aqui é da Aroeira G Fitness.`);window.open(`https://wa.me/55${digits}?text=${text}`,'_blank','noopener');}
 function generatePix(){const s=state.students.find(x=>String(x.id)===String(activeStudentId));if(!s)return;const key='24382911000199',name='GILVA SANTOS ALMEIDA',city='PE DE SERRA',value=Number(s.value||0).toFixed(2);const payload=pixPayload(key,name,city,value,'MENSALIDADE');const area=$('pixArea');area.innerHTML=`<div class="profile-section" style="text-align:center"><h3>PIX copia e cola</h3><div id="qrcode" style="display:grid;place-items:center;background:#fff;padding:14px;border-radius:12px;width:max-content;margin:0 auto 12px"></div><textarea id="pixText" readonly style="width:100%;min-height:76px;background:#08090b;border:1px solid var(--border);color:#ddd;border-radius:10px;padding:10px;font-size:10px">${escapeHtml(payload)}</textarea><button class="secondary-btn" id="copyPixBtn" style="margin-top:10px">Copiar código</button><button class="primary-btn" id="confirmPaymentBtn" style="margin-top:10px;width:100%">Confirmar recebimento</button></div>`;if(window.QRCode)new QRCode($('qrcode'),{text:payload,width:170,height:170,colorDark:'#000',colorLight:'#fff'});}
 
-function overdueStudents(){ return state.students.filter(s=>['Vencido','Atrasado'].includes(statusFor(s).label)).sort((a,b)=>String(a.due||'').localeCompare(String(b.due||''))); }
+function overdueStudents(){ return state.students.filter(s=>['Vencido','Atrasado'].includes(statusFor(s).label)).sort((a,b)=>{const rank={Vencido:0,Atrasado:1};const byStatus=rank[statusFor(a).label]-rank[statusFor(b).label];return byStatus||String(a.due||'').localeCompare(String(b.due||''));}); }
 function reminderMessage(student){
   const status=statusFor(student).label;
   if(status==='Vencido'){
@@ -171,7 +172,9 @@ function openReminder(studentId){
   window.open(`https://wa.me/55${digits}?text=${encodeURIComponent(reminderMessage(s))}`,'_blank','noopener');
 }
 function renderOverdueModal(){
-  const list=overdueStudents();
+  const all=overdueStudents();
+  const list=overdueFilter==='all'?all:all.filter(s=>statusFor(s).label.toLowerCase()===overdueFilter);
+  qsa('[data-reminder-filter]').forEach(b=>b.classList.toggle('active',b.dataset.reminderFilter===overdueFilter));
   $('overdueList').innerHTML=list.length?list.map(s=>{const st=statusFor(s); return `<div class="overdue-row"><div class="list-main"><strong>${escapeHtml(s.name)}</strong><small>${badge(st)} · venceu em ${formatDate(s.due)}</small></div><button class="secondary-btn" data-reminder-id="${s.id}" ${s.phone?'':'disabled'}>WhatsApp</button></div>`;}).join(''):'<div class="empty"><p>Nenhum aluno vencido ou atrasado.</p></div>';
   openModal('overdueModal');
 }
@@ -186,7 +189,8 @@ async function changePassword(){const current=prompt('Digite a senha atual:');if
 
 $('loginForm').addEventListener('submit',async e=>{e.preventDefault();$('loginError').classList.add('hidden');try{await login($('user').value.trim(),$('pass').value);showApp();if(!loadCache())setSyncStatus('Carregando dados...','warn');await syncNow(false);if(!state.students.length && !loadCache())toast('A conta está sem dados cadastrados.','error');renderAll();}catch(error){$('loginError').textContent=error.status===401?'Usuário ou senha inválidos.':'Não foi possível conectar ao servidor.';$('loginError').classList.remove('hidden');}});
 $('logoutBtn').addEventListener('click',()=>logout());
-$('kpiLate').addEventListener('click',renderOverdueModal);
+$('kpiLate').addEventListener('click',()=>{overdueFilter='all';renderOverdueModal();});
+qsa('[data-reminder-filter]').forEach(b=>b.addEventListener('click',()=>{overdueFilter=b.dataset.reminderFilter;renderOverdueModal();}));
 $('overdueList').addEventListener('click',e=>{const b=e.target.closest('[data-reminder-id]');if(b)openReminder(b.dataset.reminderId);});
 $('syncBtn').addEventListener('click',()=>syncNow(true));
 $('menuBtn').addEventListener('click',()=>$('sidebar').classList.toggle('open'));
