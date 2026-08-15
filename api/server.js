@@ -233,7 +233,8 @@ function verifyPassword(password, stored) {
 }
 
 function rateLimitKey(req) {
-  return req.socket.remoteAddress || 'unknown';
+  const forwarded = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim();
+  return forwarded || req.socket.remoteAddress || 'unknown';
 }
 
 function loginAllowed(req) {
@@ -317,6 +318,7 @@ const server = http.createServer(async (req, res) => {
       const latest = await loadLatest(true);
       const stored = latest.data.passwordHash || latest.data.password || ADMIN_PASSWORD || '';
       if (!verifyPassword(password, stored)) return send(res, 401, { ok: false, error: 'Usuário ou senha inválidos.' }, origin);
+      loginAttempts.delete(rateLimitKey(req));
 
       // Migra automaticamente a senha legada em texto para um hash.
       if (!ADMIN_PASSWORD && !latest.data.passwordHash) {
