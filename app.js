@@ -99,7 +99,7 @@ async function syncNow(showToast=true){
 function showApp(){ $('loginScreen').classList.add('hidden'); $('appShell').classList.remove('hidden'); }
 function showLogin(){ $('appShell').classList.add('hidden'); $('loginScreen').classList.remove('hidden'); $('pass').value=''; }
 function logout(show=true){ clearToken(); showLogin(); if(show)toast('Sessão encerrada.'); }
-function switchTab(tab){ qsa('.tab').forEach(x=>x.classList.toggle('active',x.id===`tab-${tab}`)); qsa('.nav-item[data-tab]').forEach(x=>x.classList.toggle('active',x.dataset.tab===tab)); const titles={dashboard:'Dashboard',students:'Alunos',history:'Histórico de pagamentos',backup:'Backup e configurações'}; $('pageTitle').textContent=titles[tab]||'Dashboard'; if(window.innerWidth<=760)$('sidebar').classList.remove('open'); if(tab==='dashboard')renderDashboard(); if(tab==='students')renderStudents(); if(tab==='history')renderHistory(); }
+function switchTab(tab){ qsa('.tab').forEach(x=>x.classList.toggle('active',x.id===`tab-${tab}`)); qsa('.nav-item[data-tab]').forEach(x=>x.classList.toggle('active',x.dataset.tab===tab)); const titles={dashboard:'Dashboard',students:'Alunos',marketing:'Marketing',history:'Histórico de pagamentos',backup:'Backup e configurações'}; $('pageTitle').textContent=titles[tab]||'Dashboard'; if(window.innerWidth<=760)$('sidebar').classList.remove('open'); if(tab==='dashboard')renderDashboard(); if(tab==='students')renderStudents(); if(tab==='history')renderHistory(); }
 function badge(status){ return `<span class="badge ${status.tone}">${escapeHtml(status.label)}</span>`; }
 function renderDashboard(){
   const total=state.students.length; const active=state.students.filter(s=>statusFor(s).label==='Em Dia').length; const soon=dueSoonStudents().length; const late=state.students.filter(s=>['Vencido','Atrasado'].includes(statusFor(s).label)).length;
@@ -181,6 +181,44 @@ function renderOverdueModal(){
 function pixPayload(key,name,city,value,desc){const f=(id,val)=>id+String(val.length).padStart(2,'0')+val;const gui='br.gov.bcb.pix';let merchant=f('00',gui)+f('01',key)+f('02',desc.slice(0,25));let p=f('00','01')+f('26',merchant)+f('52','0000')+f('53','986')+f('54',value)+f('58','BR')+f('59',name.slice(0,25))+f('60',city.slice(0,15))+f('62',f('05','***'));return p+'6304'+crc16(p);}
 function crc16(str){let crc=0xffff;for(let i=0;i<str.length;i++){crc^=str.charCodeAt(i)<<8;for(let j=0;j<8;j++)crc=(crc&0x8000)?((crc<<1)^0x1021)&0xffff:(crc<<1)&0xffff;}return crc.toString(16).toUpperCase().padStart(4,'0');}
 async function copyPix(){const el=$('pixText');if(!el)return;try{await navigator.clipboard.writeText(el.value);toast('Código Pix copiado.');}catch{el.select();document.execCommand('copy');toast('Código Pix copiado.');}}
+
+function marketingParse(command){
+  const raw=String(command||'').trim();
+  const lower=raw.toLowerCase();
+  const dateMatch=raw.match(/(?:dia\s*)?(\d{1,2})[\/.-](\d{1,2})(?:[\/.-](\d{2,4}))?/i);
+  const dateText=dateMatch?`${String(dateMatch[1]).padStart(2,'0')}/${String(dateMatch[2]).padStart(2,'0')}`:'';
+  let title='COMUNICADO IMPORTANTE', subtitle='';
+  if(/fechad|não abre|nao abre|sem atendimento/i.test(lower)){ title='ACADEMIA FECHADA'; subtitle=dateText?`DIA ${dateText}`:'AVISO IMPORTANTE'; }
+  else if(/hor[aá]rio|funciona|abre|atendimento/i.test(lower)){ title='HORÁRIO ESPECIAL'; subtitle=dateText?`DIA ${dateText}`:'ATENÇÃO'; }
+  else if(/promo|desconto|oferta/i.test(lower)){ title='NOVIDADE NA AROEIRA G'; subtitle='CONDIÇÃO ESPECIAL'; }
+  else if(/anivers[aá]rio/i.test(lower)){ title='PARABÉNS!'; subtitle='MOMENTO ESPECIAL'; }
+  else { title='COMUNICADO'; subtitle=dateText?`DIA ${dateText}`:'ATENÇÃO'; }
+  let detail=raw.replace(/^(faz|faça|crie|ger[ae]|mont[ae]|um|uma|o|a|card|comunicado|anúncio|anuncio|anunciando|que)\s+/ig,'').trim();
+  detail=detail.replace(/^(de divulgação|para divulgação)\s*/i,'').replace(/[.]+$/,'');
+  if(!detail) detail='Confira nosso comunicado.';
+  if(/fechad|não abre|nao abre/i.test(lower)) detail=dateText?`No dia ${dateText}, a academia estará fechada por motivo de feriado.`:'A academia estará fechada por motivo de feriado.';
+  return {title,subtitle,detail};
+}
+function marketingRoundRect(ctx,x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+function marketingWrap(ctx,text,maxWidth,font){ctx.font=font;const words=String(text).split(/\s+/),lines=[];let line='';for(const word of words){const test=line?`${line} ${word}`:word;if(ctx.measureText(test).width>maxWidth&&line){lines.push(line);line=word;}else line=test;}if(line)lines.push(line);return lines;}
+function renderMarketingCard(command){
+  const canvas=$('marketingCanvas'); if(!canvas)return; const ctx=canvas.getContext('2d'), w=canvas.width, h=canvas.height, data=marketingParse(command);
+  const bg=ctx.createLinearGradient(0,0,w,h);bg.addColorStop(0,'#111216');bg.addColorStop(.55,'#08090b');bg.addColorStop(1,'#1a160b');ctx.fillStyle=bg;ctx.fillRect(0,0,w,h);
+  for(let i=0;i<22;i++){ctx.fillStyle=`rgba(243,197,68,${(i%3+1)*.012})`;ctx.beginPath();ctx.arc((i*197)%w,(i*311)%h,90+(i%4)*35,0,Math.PI*2);ctx.fill();}
+  ctx.strokeStyle='#f3c544';ctx.lineWidth=10;ctx.strokeRect(34,34,w-68,h-68);ctx.strokeStyle='rgba(243,197,68,.25)';ctx.lineWidth=2;ctx.strokeRect(55,55,w-110,h-110);
+  ctx.fillStyle='#f3c544';marketingRoundRect(ctx,82,84,116,116,28);ctx.fill();ctx.fillStyle='#111';ctx.font='900 43px Inter, Arial';ctx.textAlign='center';ctx.fillText('AG',140,157);ctx.font='700 18px Inter, Arial';ctx.fillText('FITNESS',140,183);
+  ctx.textAlign='left';ctx.fillStyle='#f3c544';ctx.font='800 22px Inter, Arial';ctx.letterSpacing='6px';ctx.fillText('AROEIRA G FITNESS',238,132);ctx.letterSpacing='0px';
+  ctx.fillStyle='#f3c544';ctx.font='800 30px Inter, Arial';ctx.fillText(data.subtitle,92,365);
+  ctx.fillStyle='#fff';const titleLines=marketingWrap(ctx,data.title,880,'900 84px Inter, Arial');ctx.font='900 84px Inter, Arial';titleLines.slice(0,2).forEach((line,i)=>ctx.fillText(line,92,475+i*96));
+  ctx.fillStyle='#d7d9dd';ctx.font='500 34px Inter, Arial';const detailLines=marketingWrap(ctx,data.detail,850,'500 34px Inter, Arial');detailLines.slice(0,5).forEach((line,i)=>ctx.fillText(line,92,735+i*52));
+  ctx.fillStyle='rgba(243,197,68,.16)';marketingRoundRect(ctx,92,1035,896,2,1);ctx.fill();
+  ctx.fillStyle='#f3c544';ctx.font='800 28px Inter, Arial';ctx.fillText('CONECTANDO PESSOAS À SUA MELHOR VERSÃO',92,1150);
+  ctx.fillStyle='#9297a3';ctx.font='500 24px Inter, Arial';ctx.fillText('Acompanhe nossos canais oficiais para mais informações.',92,1205);
+  ctx.fillStyle='#fff';ctx.font='800 25px Inter, Arial';ctx.fillText('AROEIRA G FITNESS',92,1270);
+  $('marketingEmpty').classList.add('hidden');$('downloadMarketingBtn').disabled=false; canvas.dataset.generated='true';
+}
+function downloadMarketingCard(){const canvas=$('marketingCanvas');if(!canvas?.dataset.generated){toast('Gere um card primeiro.','error');return;}const a=document.createElement('a');a.download=`AROEIRA_G_FITNESS_MARKETING_${todayISO()}.png`;a.href=canvas.toDataURL('image/png');a.click();toast('Imagem baixada com sucesso.');}
+
 function exportCsv(){const rows=[['Nome','Email','Telefone','Plano','Valor','Vencimento','Status']];state.students.forEach(s=>rows.push([s.name,s.email,s.phone,s.plan,s.value,s.due,displayStatus(s).label]));const csv='\uFEFF'+rows.map(r=>r.map(v=>`"${String(v??'').replace(/"/g,'""')}"`).join(';')).join('\n');downloadBlob(csv,'AROEIRA_ALUNOS.csv','text/csv;charset=utf-8');}
 function backupJson(){downloadBlob(JSON.stringify({students:state.students,history:state.history,lastUpdate:state.lastUpdate},null,2),'AROEIRA_BACKUP.json','application/json');}
 function downloadBlob(content,name,type){const blob=new Blob([content],{type});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),500);}
@@ -193,6 +231,9 @@ $('kpiLate').addEventListener('click',()=>{overdueFilter='all';renderOverdueModa
 qsa('[data-reminder-filter]').forEach(b=>b.addEventListener('click',()=>{overdueFilter=b.dataset.reminderFilter;renderOverdueModal();}));
 $('overdueList').addEventListener('click',e=>{const b=e.target.closest('[data-reminder-id]');if(b)openReminder(b.dataset.reminderId);});
 $('syncBtn').addEventListener('click',()=>syncNow(true));
+$('generateMarketingBtn').addEventListener('click',()=>{const command=$('marketingCommand').value.trim();if(!command){toast('Digite o que você quer divulgar.','error');$('marketingCommand').focus();return;}renderMarketingCard(command);});
+$('downloadMarketingBtn').addEventListener('click',downloadMarketingCard);
+qsa('[data-marketing-example]').forEach(b=>b.addEventListener('click',()=>{$('marketingCommand').value=b.dataset.marketingExample;renderMarketingCard(b.dataset.marketingExample);}));
 $('menuBtn').addEventListener('click',()=>$('sidebar').classList.toggle('open'));
 qsa('.nav-item[data-tab]').forEach(btn=>btn.addEventListener('click',()=>switchTab(btn.dataset.tab)));
 qsa('[data-tab-link]').forEach(btn=>btn.addEventListener('click',()=>switchTab(btn.dataset.tabLink)));
