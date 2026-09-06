@@ -14,6 +14,10 @@ let confirmHandler = null;
 let toastTimer = null;
 let syncBusy = false;
 let overdueFilter = 'all';
+let marketingLogo = null;
+const marketingLogoImage = new Image();
+marketingLogoImage.onload = () => { marketingLogo = marketingLogoImage; };
+marketingLogoImage.src = 'marketing-logo.png';
 
 const $ = id => document.getElementById(id);
 const qs = (sel, root = document) => root.querySelector(sel);
@@ -206,15 +210,15 @@ function renderMarketingCard(command){
   const bg=ctx.createLinearGradient(0,0,w,h);bg.addColorStop(0,'#111216');bg.addColorStop(.55,'#08090b');bg.addColorStop(1,'#1a160b');ctx.fillStyle=bg;ctx.fillRect(0,0,w,h);
   for(let i=0;i<22;i++){ctx.fillStyle=`rgba(243,197,68,${(i%3+1)*.012})`;ctx.beginPath();ctx.arc((i*197)%w,(i*311)%h,90+(i%4)*35,0,Math.PI*2);ctx.fill();}
   ctx.strokeStyle='#f3c544';ctx.lineWidth=10;ctx.strokeRect(34,34,w-68,h-68);ctx.strokeStyle='rgba(243,197,68,.25)';ctx.lineWidth=2;ctx.strokeRect(55,55,w-110,h-110);
-  ctx.fillStyle='#f3c544';marketingRoundRect(ctx,82,84,116,116,28);ctx.fill();ctx.fillStyle='#111';ctx.font='900 43px Inter, Arial';ctx.textAlign='center';ctx.fillText('AG',140,157);ctx.font='700 18px Inter, Arial';ctx.fillText('FITNESS',140,183);
-  ctx.textAlign='left';ctx.fillStyle='#f3c544';ctx.font='800 22px Inter, Arial';ctx.letterSpacing='6px';ctx.fillText('AROEIRA G FITNESS',238,132);ctx.letterSpacing='0px';
-  ctx.fillStyle='#f3c544';ctx.font='800 30px Inter, Arial';ctx.fillText(data.subtitle,92,365);
-  ctx.fillStyle='#fff';const titleLines=marketingWrap(ctx,data.title,880,'900 84px Inter, Arial');ctx.font='900 84px Inter, Arial';titleLines.slice(0,2).forEach((line,i)=>ctx.fillText(line,92,475+i*96));
-  ctx.fillStyle='#d7d9dd';ctx.font='500 34px Inter, Arial';const detailLines=marketingWrap(ctx,data.detail,850,'500 34px Inter, Arial');detailLines.slice(0,5).forEach((line,i)=>ctx.fillText(line,92,735+i*52));
-  ctx.fillStyle='rgba(243,197,68,.16)';marketingRoundRect(ctx,92,1035,896,2,1);ctx.fill();
-  ctx.fillStyle='#f3c544';ctx.font='800 28px Inter, Arial';ctx.fillText('CONECTANDO PESSOAS À SUA MELHOR VERSÃO',92,1150);
-  ctx.fillStyle='#9297a3';ctx.font='500 24px Inter, Arial';ctx.fillText('Acompanhe nossos canais oficiais para mais informações.',92,1205);
-  ctx.fillStyle='#fff';ctx.font='800 25px Inter, Arial';ctx.fillText('AROEIRA G FITNESS',92,1270);
+  if(marketingLogo){ctx.drawImage(marketingLogo,82,78,250,210);}else{ctx.fillStyle='#f3c544';marketingRoundRect(ctx,82,84,116,116,28);ctx.fill();ctx.fillStyle='#111';ctx.font='900 43px Inter, Arial';ctx.textAlign='center';ctx.fillText('AG',140,157);ctx.font='700 18px Inter, Arial';ctx.fillText('FITNESS',140,183);}
+  ctx.textAlign='left';ctx.fillStyle='#f3c544';ctx.font='800 22px Inter, Arial';ctx.letterSpacing='6px';ctx.fillText('AROEIRA G FITNESS',310,132);ctx.letterSpacing='0px';
+  ctx.fillStyle='#f3c544';ctx.font='800 30px Inter, Arial';ctx.fillText(data.subtitle,92,470);
+  ctx.fillStyle='#fff';const titleLines=marketingWrap(ctx,data.title,880,'900 84px Inter, Arial');ctx.font='900 84px Inter, Arial';titleLines.slice(0,2).forEach((line,i)=>ctx.fillText(line,92,580+i*96));
+  ctx.fillStyle='#d7d9dd';ctx.font='500 34px Inter, Arial';const detailLines=marketingWrap(ctx,data.detail,850,'500 34px Inter, Arial');detailLines.slice(0,5).forEach((line,i)=>ctx.fillText(line,92,930+i*52));
+  ctx.fillStyle='rgba(243,197,68,.16)';marketingRoundRect(ctx,92,1390,896,2,1);ctx.fill();
+  ctx.fillStyle='#f3c544';ctx.font='800 28px Inter, Arial';ctx.fillText('CONECTANDO PESSOAS À SUA MELHOR VERSÃO',92,1510);
+  ctx.fillStyle='#9297a3';ctx.font='500 24px Inter, Arial';ctx.fillText('Acompanhe nossos canais oficiais para mais informações.',92,1570);
+  ctx.fillStyle='#fff';ctx.font='800 25px Inter, Arial';ctx.fillText('AROEIRA G FITNESS',92,1660);
   $('marketingEmpty').classList.add('hidden');$('downloadMarketingBtn').disabled=false; canvas.dataset.generated='true';
 }
 function downloadMarketingCard(){const canvas=$('marketingCanvas');if(!canvas?.dataset.generated){toast('Gere um card primeiro.','error');return;}const a=document.createElement('a');a.download=`AROEIRA_G_FITNESS_MARKETING_${todayISO()}.png`;a.href=canvas.toDataURL('image/png');a.click();toast('Imagem baixada com sucesso.');}
