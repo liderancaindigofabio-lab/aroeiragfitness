@@ -256,10 +256,16 @@ async function loadLatest(force = false) {
   return latest;
 }
 
-function queueWrite(data, message) {
+function queueWrite(data, message, expectedLastUpdate = null) {
   const job = writeQueue.then(async () => {
     let latest = await loadLatest(true);
     try {
+      if (expectedLastUpdate && latest.data.lastUpdate !== expectedLastUpdate) {
+        const conflict = new Error('DADOS_DESATUALIZADOS');
+        conflict.status = 409;
+        conflict.currentLastUpdate = latest.data.lastUpdate;
+        throw conflict;
+      }
       const clean = normalizeData(data);
       const result = await githubPut(clean, latest.sha, message);
       cachedData = clean;
@@ -344,10 +350,18 @@ const server = http.createServer(async (req, res) => {
       if (!Array.isArray(data.students) || !Array.isArray(data.history)) {
         return send(res, 400, { ok: false, error: 'students e history são obrigatórios' }, origin);
       }
+      if (typeof data.expectedLastUpdate !== 'string' || !data.expectedLastUpdate) {
+        return send(res, 428, { ok: false, error: 'SYNC_VERSION_REQUIRED' }, origin);
+      }
       const clean = normalizeData({ ...data, students: deduplicateExactStudents(data.students), lastUpdate: new Date().toISOString() });
       const current = await loadLatest(true);
       clean.passwordHash = current.data.passwordHash || undefined;
-      await queueWrite(clean, 'data: atualização do sistema');
+      try {
+        await queueWrite(clean, 'data: atualização do sistema', data.expectedLastUpdate);
+      } catch (error) {
+        if (error.status === 409) return send(res, 409, { ok: false, error: 'CONFLICT', currentLastUpdate: error.currentLastUpdate || current.data.lastUpdate }, origin);
+        throw error;
+      }
       return send(res, 200, { ok: true, lastUpdate: clean.lastUpdate, students: clean.students.length }, origin);
     }
 
