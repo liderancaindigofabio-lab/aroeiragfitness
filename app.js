@@ -87,17 +87,23 @@ async function login(username,password){
 }
 async function loadCloud(){ const data=await request('/api/sync',{method:'GET'},12000); normalizeState(data); saveCache(); return data; }
 async function persistCloud(){
-  const payload={students:state.students,history:state.history};
-  try{ const result=await request('/api/sync',{method:'POST',body:JSON.stringify(payload)},15000); localStorage.removeItem(PENDING_KEY); state.lastUpdate=result.lastUpdate||new Date().toISOString(); saveCache(); setSyncStatus(`Sincronizado ${new Date(state.lastUpdate).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}`,'ok'); return true; }
-  catch(error){ localStorage.setItem(PENDING_KEY,JSON.stringify(payload)); setSyncStatus('Alteração pendente de sincronização','warn'); toast('Alteração salva neste dispositivo, mas ainda não foi enviada à nuvem.','error'); return false; }
+  const payload={students:state.students,history:state.history,expectedLastUpdate:state.lastUpdate};
+  try{ const result=await request('/api/sync',{method:'POST',body:JSON.stringify(payload)},15000); localStorage.removeItem(PENDING_KEY); state.lastUpdate=result.lastUpdate||new Date().toISOString(); saveCache(); setSyncStatus(`Sincronizado ${new Date(state.lastUpdate).toLocaleTimeString('pt-BR',{hour:'2-digit',minute':'2-digit'})}`,'ok'); return true; }
+  catch(error){
+    if(error.status===409){ localStorage.removeItem(PENDING_KEY); await loadCloud(); renderAll(); setSyncStatus(`Atualizado agora · ${new Date(state.lastUpdate).toLocaleTimeString('pt-BR',{hour:'2-digit',minute':'2-digit'})}`,'ok'); toast('Outro aparelho atualizou os dados. Sua alteração não foi sobrescrita; confira e tente novamente.','error'); return false; }
+    localStorage.setItem(PENDING_KEY,JSON.stringify(payload)); setSyncStatus('Alteração pendente de sincronização','warn'); toast('Alteração salva neste dispositivo, mas ainda não foi enviada à nuvem.','error'); return false;
+  }
 }
 async function syncNow(showToast=true){
   if(syncBusy)return; syncBusy=true; setSyncStatus('Sincronizando...','warn');
   try{
     const pending=localStorage.getItem(PENDING_KEY);
-    if(pending){ try{ const payload=JSON.parse(pending); const result=await request('/api/sync',{method:'POST',body:JSON.stringify(payload)},15000); localStorage.removeItem(PENDING_KEY); state.lastUpdate=result.lastUpdate||null; }catch(e){} }
+    if(pending){
+      try{ const payload=JSON.parse(pending); const result=await request('/api/sync',{method:'POST',body:JSON.stringify(payload)},15000); localStorage.removeItem(PENDING_KEY); state.lastUpdate=result.lastUpdate||null; }
+      catch(e){ if(e.status===409){ localStorage.removeItem(PENDING_KEY); await loadCloud(); renderAll(); setSyncStatus(`Atualizado agora · ${new Date(state.lastUpdate).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}`,'ok'); toast('Havia uma alteração mais recente em outro aparelho. Ela foi preservada.','error'); return; } }
+    }
     await loadCloud(); renderAll(); setSyncStatus(`Sincronizado ${new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}`,'ok'); if(showToast)toast('Dados sincronizados.');
-  }catch(error){ if(error.status===401){logout(false); toast('Sessão expirada. Entre novamente.','error');} else { setSyncStatus('Servidor indisponível','error'); if(!loadCache())toast('Não foi possível carregar os dados.','error'); else {renderAll(); if(showToast)toast('Usando o último cache local disponível.','error');} } }
+  }catch(error){ if(error.status===401){logout(false); toast('Sessão expirada.','error');} else { setSyncStatus('Servidor indisponível · cache local','error'); if(!loadCache())toast('Não foi possível carregar os dados.','error'); else {renderAll(); if(showToast)toast('Servidor indisponível. Exibindo a última cópia local; nenhuma alteração foi sobrescrita.','error');} } }
   finally{syncBusy=false;}
 }
 function showApp(){ $('loginScreen').classList.add('hidden'); $('appShell').classList.remove('hidden'); }
