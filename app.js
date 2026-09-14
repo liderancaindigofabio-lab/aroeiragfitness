@@ -88,9 +88,9 @@ async function login(username,password){
 async function loadCloud(){ const data=await request('/api/sync',{method:'GET'},12000); normalizeState(data); saveCache(); return data; }
 async function persistCloud(){
   const payload={students:state.students,history:state.history,expectedLastUpdate:state.lastUpdate};
-  try{ const result=await request('/api/sync',{method:'POST',body:JSON.stringify(payload)},15000); localStorage.removeItem(PENDING_KEY); state.lastUpdate=result.lastUpdate||new Date().toISOString(); saveCache(); setSyncStatus(`Sincronizado ${new Date(state.lastUpdate).toLocaleTimeString('pt-BR',{hour:'2-digit',minute':'2-digit'})}`,'ok'); return true; }
+  try{ const result=await request('/api/sync',{method:'POST',body:JSON.stringify(payload)},15000); localStorage.removeItem(PENDING_KEY); state.lastUpdate=result.lastUpdate||new Date().toISOString(); saveCache(); setSyncStatus(`Sincronizado ${new Date(state.lastUpdate).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}`,'ok'); return true; }
   catch(error){
-    if(error.status===409){ localStorage.removeItem(PENDING_KEY); await loadCloud(); renderAll(); setSyncStatus(`Atualizado agora · ${new Date(state.lastUpdate).toLocaleTimeString('pt-BR',{hour:'2-digit',minute':'2-digit'})}`,'ok'); toast('Outro aparelho atualizou os dados. Sua alteração não foi sobrescrita; confira e tente novamente.','error'); return false; }
+    if(error.status===409){ localStorage.removeItem(PENDING_KEY); await loadCloud(); renderAll(); setSyncStatus(`Atualizado agora · ${new Date(state.lastUpdate).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}`,'ok'); toast('Outro aparelho atualizou os dados. Sua alteração não foi sobrescrita; confira e tente novamente.','error'); return false; }
     localStorage.setItem(PENDING_KEY,JSON.stringify(payload)); setSyncStatus('Alteração pendente de sincronização','warn'); toast('Alteração salva neste dispositivo, mas ainda não foi enviada à nuvem.','error'); return false;
   }
 }
