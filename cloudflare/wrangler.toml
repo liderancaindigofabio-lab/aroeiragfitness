@@ -1,0 +1,9 @@
+name = "aroeira-gfitness-api"
+main = "worker.js"
+compatibility_date = "2026-10-01"
+workers_dev = true
+
+[[d1_databases]]
+binding = "DB"
+database_name = "aroeira-gfitness-data"
+database_id = "fe8c122b-d0ae-4f1e-9544-3934efa749fa"

@@ -10,6 +10,7 @@ const KDF_ITERATIONS = 600000;
 const LEGACY_CACHE_KEY = 'aroeiraGfitness.cache.v3';
 const LEGACY_PENDING_KEY = 'aroeiraGfitness.pending';
 const USERNAME = 'Admin';
+const API_BASE = 'https://aroeira-gfitness-api.aroeiragfitness.workers.dev';
 const VAULT_AAD = new TextEncoder().encode('AroeiraGFitnessVault:v1');
 
 let state = { students: [], history: [], lastUpdate: null };
@@ -21,6 +22,9 @@ let toastTimer = null;
 let syncBusy = false;
 let vaultKey = null;
 let vaultSalt = null;
+let cloudToken = null;
+let cloudRevision = 0;
+let cloudOnline = false;
 let vaultDbPromise = null;
 let saveQueue = Promise.resolve();
 let lastActivityAt = Date.now();
@@ -83,6 +87,17 @@ function paymentEntries() {
 function dueSoonStudents() { return state.students.map(s=>({s,d:daysUntil(s.due)})).filter(x=>x.d!==null && x.d>=0 && x.d<=7).sort((a,b)=>a.d-b.d); }
 function toast(message,type='success') { const el=$('toast'); el.textContent=message; el.className=`toast show ${type}`; clearTimeout(toastTimer); toastTimer=setTimeout(()=>el.className='toast',3200); }
 function setSyncStatus(text,tone='') { const el=$('syncBadge'); el.className=`sync-badge ${tone}`; el.innerHTML=`<span class="dot"></span><span>${escapeHtml(text)}</span>`; }
+async function cloudRequest(path,{method='GET',body,auth=true}={}){
+  const headers={};
+  if(body!==undefined)headers['Content-Type']='application/json';
+  if(auth&&cloudToken)headers.Authorization=`Bearer ${cloudToken}`;
+  let res;
+  try{res=await fetch(`${API_BASE}${path}`,{method,headers,body:body===undefined?undefined:JSON.stringify(body),cache:'no-store',credentials:'omit'});}
+  catch{const error=new Error('Não consegui conectar ao servidor Cloudflare.');error.code='NETWORK';throw error;}
+  let data={};try{data=await res.json();}catch{}
+  if(!res.ok){const error=new Error(data.error==='RATE_LIMITED'?'Muitas tentativas. Aguarde 15 minutos e tente novamente.':data.error==='CONFLICT'?'Os dados da nuvem mudaram em outro aparelho. Reabra o sistema para carregar a versão atual.':data.error==='INVALID_CREDENTIALS'?'Login ou senha incorretos.':data.error==='UNAUTHORIZED'?'Sua sessão expirou. Entre novamente.':'Falha ao comunicar com a nuvem.');error.code=data.error||`HTTP_${res.status}`;error.status=res.status;throw error;}
+  return data;
+}
 function openVaultDb(){
   if(!window.indexedDB)return Promise.reject(new Error('Este navegador não oferece armazenamento local seguro.'));
   if(vaultDbPromise)return vaultDbPromise;
@@ -134,44 +149,78 @@ function readLegacyLocalData(){
 function hasLegacyLocalData(){try{return localStorage.getItem(LEGACY_CACHE_KEY)!==null||localStorage.getItem(LEGACY_PENDING_KEY)!==null;}catch{return false;}}
 function clearLegacyPlaintext(){try{localStorage.removeItem(LEGACY_CACHE_KEY);localStorage.removeItem(LEGACY_PENDING_KEY);}catch{}try{sessionStorage.removeItem('aroeiraGfitness.githubToken');sessionStorage.removeItem('aroeiraGfitness.session');}catch{}}
 function saveCache(){
-  if(!vaultKey||!vaultSalt)return Promise.resolve(false);
+  if(!vaultKey||!vaultSalt)return Promise.resolve({local:false,cloud:false});
   const key=vaultKey,salt=vaultSalt;
   const snapshot=JSON.parse(JSON.stringify({students:state.students,history:state.history,lastUpdate:state.lastUpdate||new Date().toISOString()}));
-  saveQueue=saveQueue.catch(()=>{}).then(async()=>writeVaultRecord(await encryptVaultRecord(snapshot,key,salt)));
+  saveQueue=saveQueue.catch(()=>{}).then(async()=>{
+    const record=await encryptVaultRecord(snapshot,key,salt);
+    record.cloudRevision=cloudRevision;
+    await writeVaultRecord(record);
+    if(!cloudToken){cloudOnline=false;return {local:true,cloud:false};}
+    try{
+      const saved=await cloudRequest('/api/vault',{method:'PUT',body:{record,expectedRevision:cloudRevision}});
+      cloudRevision=Number(saved.revision);record.cloudRevision=cloudRevision;await writeVaultRecord(record);cloudOnline=true;
+      return {local:true,cloud:true,revision:cloudRevision};
+    }catch(error){error.localSaved=true;cloudOnline=false;throw error;}
+  });
   return saveQueue;
 }
 async function login(username,password){
-  if(String(username||'').trim().toLowerCase()!==USERNAME.toLowerCase()||!password)throw new Error('Login ou senha inválidos.');
+  const user=String(username||'').trim(),pass=String(password||'');
+  if(user.toLowerCase()!==USERNAME.toLowerCase()||!pass)throw new Error('Login ou senha inválidos.');
   if(!window.crypto?.subtle)throw new Error('Este navegador não oferece criptografia local segura. Abra o site por HTTPS.');
-  const record=await readVaultRecord();
-  if(record){
-    let unlocked;
-    try{unlocked=await decryptVaultRecord(String(password),record);}catch{throw new Error('Senha incorreta ou cofre danificado.');}
-    vaultKey=unlocked.key;vaultSalt=unlocked.salt;normalizeState(unlocked.data);return {created:false};
+  cloudToken=null;cloudRevision=0;cloudOnline=false;
+  const auth=await cloudRequest('/api/auth/login',{method:'POST',body:{username:user,password:pass},auth:false});
+  cloudToken=auth.token;
+  try{
+    const remote=await cloudRequest('/api/vault');
+    cloudRevision=Number(remote.revision||0);cloudOnline=true;
+    const local=await readVaultRecord();
+    if(remote.record){
+      let unlocked;
+      try{unlocked=await decryptVaultRecord(pass,remote.record);}catch{throw new Error('A senha validou no servidor, mas não abriu o cofre criptografado. Não substituí os dados locais.');}
+      if(local&&Number(local.cloudRevision)!==cloudRevision){
+        const keep=window.confirm('Este aparelho contém um cofre diferente da versão da nuvem. Posso baixar uma cópia criptografada do cofre local e então carregar a versão sincronizada?');
+        if(!keep)throw new Error('Abertura cancelada; nenhuma cópia foi substituída.');
+        const backup={...local};delete backup.id;delete backup.cloudRevision;backup.exportedAt=new Date().toISOString();
+        downloadBlob(JSON.stringify(backup,null,2),`AROEIRA_BACKUP_LOCAL_${todayISO()}.json`,'application/json');
+      }else if(local&&Number(local.cloudRevision)===cloudRevision&&String(local.updatedAt||'')>String(remote.record.updatedAt||'')){
+        try{unlocked=await decryptVaultRecord(pass,local);}catch{throw new Error('O cofre local está danificado; mantive a versão da nuvem sem alterações.');}
+        vaultKey=unlocked.key;vaultSalt=unlocked.salt;normalizeState(unlocked.data);await saveCache();return {created:false,cloud:true};
+      }
+      await writeVaultRecord({...remote.record,id:VAULT_ID,cloudRevision});
+      vaultKey=unlocked.key;vaultSalt=unlocked.salt;normalizeState(unlocked.data);return {created:false,cloud:true};
+    }
+    const legacy=readLegacyLocalData();
+    if(local){
+      let unlocked;
+      try{unlocked=await decryptVaultRecord(pass,local);}catch{throw new Error('Há um cofre local, mas esta senha não o abre; os dados foram preservados.');}
+      vaultKey=unlocked.key;vaultSalt=unlocked.salt;normalizeState(unlocked.data);await saveCache();return {created:false,cloud:true};
+    }
+    if(hasLegacyLocalData()&&!legacy)throw new Error('Há dados antigos em formato não reconhecido. Não criei um cofre vazio nem apaguei esses dados.');
+    if(legacy&&!window.confirm('Encontrei dados antigos neste navegador. Vou criptografá-los com esta senha e sincronizá-los com a nuvem. Continuar?'))throw new Error('Migração local cancelada.');
+    normalizeState(legacy||{students:[],history:[],lastUpdate:new Date().toISOString()});
+    vaultSalt=crypto.getRandomValues(new Uint8Array(16));vaultKey=await deriveVaultKey(pass,vaultSalt);
+    await saveCache();clearLegacyPlaintext();return {created:true,imported:Boolean(legacy),cloud:true};
+  }catch(error){
+    if(error.code==='NETWORK')cloudToken=null;
+    if(cloudToken){cloudRequest('/api/auth/logout',{method:'POST'}).catch(()=>{});cloudToken=null;}
+    cloudRevision=0;cloudOnline=false;vaultKey=null;vaultSalt=null;state={students:[],history:[],lastUpdate:null};throw error;
   }
-  if(String(password).length<10&&!window.confirm('Senha curta detectada. Um backup roubado poderá ser testado offline. Quer continuar mesmo assim?'))throw new Error('Criação do cofre cancelada.');
-  const legacy=readLegacyLocalData();
-  if(hasLegacyLocalData()&&!legacy)throw new Error('Há dados antigos em formato não reconhecido. Não criei um cofre vazio nem apaguei esses dados para evitar perda.');
-  if(legacy&&!window.confirm('Encontrei dados antigos salvos neste navegador. Vou criptografá-los com esta senha e remover a cópia sem criptografia. Continuar?'))throw new Error('Migração local cancelada.');
-  normalizeState(legacy||{students:[],history:[],lastUpdate:new Date().toISOString()});
-  vaultSalt=crypto.getRandomValues(new Uint8Array(16));
-  try{vaultKey=await deriveVaultKey(String(password),vaultSalt);await saveCache();}
-  catch{vaultKey=null;vaultSalt=null;state={students:[],history:[],lastUpdate:null};throw new Error('Não consegui criar o cofre local; os dados antigos foram mantidos.');}
-  clearLegacyPlaintext();
-  return {created:true,imported:Boolean(legacy)};
 }
 async function syncNow(showToast=true){
   if(syncBusy||!vaultKey)return;
-  syncBusy=true;setSyncStatus('Salvando cofre local...','warn');
-  try{await saveCache();renderAll();setSyncStatus('Salvo neste aparelho','ok');if(showToast)toast('Dados salvos neste aparelho. A transferência entre aparelhos é manual.');}
-  catch(error){setSyncStatus('Erro ao salvar cofre','error');toast('Não consegui salvar os dados criptografados. Não feche esta página e tente novamente.','error');}
+  syncBusy=true;setSyncStatus('Sincronizando nuvem...','warn');
+  try{const result=await saveCache();renderAll();setSyncStatus(result.cloud?'Sincronizado na nuvem':'Salvo só neste aparelho',result.cloud?'ok':'warn');if(showToast)toast(result.cloud?'Dados salvos e sincronizados com a nuvem.':'Salvo neste aparelho; a nuvem não está conectada.',result.cloud?'success':'error');}
+  catch(error){setSyncStatus('Sincronização pendente','error');toast(error.localSaved?'Cópia local protegida; a nuvem não confirmou. Mantenha a página aberta e tente sincronizar novamente.':'Não consegui salvar o cofre criptografado.','error');}
   finally{syncBusy=false;}
 }
 function showApp(){ $('loginScreen').classList.add('hidden'); $('appShell').classList.remove('hidden'); }
-function showLogin(){ $('appShell').classList.add('hidden'); $('loginScreen').classList.remove('hidden'); $('pass').value='';$('loginNote').textContent='Cofre local criptografado. Digite Admin e sua senha para desbloquear.'; }
+function showLogin(){ $('appShell').classList.add('hidden'); $('loginScreen').classList.remove('hidden'); $('pass').value='';$('loginNote').textContent='Digite Admin e a senha para desbloquear o cofre criptografado e sincronizado na nuvem.'; }
 async function logout(show=true){
-  try{if(vaultKey)await saveCache();}catch{toast('Não consegui confirmar o salvamento; o cofre continua aberto para evitar perda.','error');return;}
-  vaultKey=null;vaultSalt=null;state={students:[],history:[],lastUpdate:null};activeStudentId=null;
+  try{if(vaultKey)await saveCache();}catch(error){if(!error.localSaved){toast('Não consegui salvar o cofre local; ele continua aberto para evitar perda.','error');return;}toast('A cópia local foi protegida, mas a nuvem não confirmou a última sincronização.','error');}
+  if(cloudToken)cloudRequest('/api/auth/logout',{method:'POST'}).catch(()=>{});
+  cloudToken=null;cloudRevision=0;cloudOnline=false;vaultKey=null;vaultSalt=null;state={students:[],history:[],lastUpdate:null};activeStudentId=null;
   $('profileContent').innerHTML='';$('overdueList').innerHTML='';$('studentForm').reset();$('confirmMessage').textContent='';
   qsa('.overlay').forEach(o=>o.classList.add('hidden'));document.body.style.overflow='';
   renderAll();showLogin();if(show)toast('Cofre bloqueado.');
@@ -224,7 +273,7 @@ function evalField(id,label,type,value=''){return `<label>${escapeHtml(label)}<i
 function openConfirm(title,message,handler){$('confirmTitle').textContent=title;$('confirmMessage').textContent=message;confirmHandler=handler;openModal('confirmModal');}
 function saveStudentFromForm(e){ e.preventDefault(); const id=$('studentId').value; const payload={name:$('name').value.trim().toUpperCase(),phone:$('phone').value.trim(),email:$('email').value.trim(),plan:normalizePlan($('plan').value),value:parseMoney($('value').value),due:$('due').value,payment:$('payment').value}; if(!payload.name||!payload.due){toast('Preencha nome e vencimento.','error');return;} if(id){const s=state.students.find(x=>String(x.id)===String(id)); if(!s)return; const oldDue=String(s.due||''); const paymentHistory=Array.isArray(s.paymentHistory)?s.paymentHistory:[]; const dueWasAdvanced=Boolean(oldDue&&payload.due>oldDue); if(dueWasAdvanced){const paidAt=todayISO(); const alreadyRegistered=paymentHistory.some(p=>String(p.date)===paidAt&&Number(p.value)===Number(payload.value)); if(!alreadyRegistered)paymentHistory.push({month:monthLabel(paidAt),value:payload.value,date:paidAt}); payload.payment='Pago';} const preserved={evaluations:Array.isArray(s.evaluations)?s.evaluations:[],paymentHistory,gymHistory:Array.isArray(s.gymHistory)?s.gymHistory:[]}; Object.assign(s,payload,preserved); } else {payload.id=nextId();payload.evaluations=[];payload.paymentHistory=[];payload.gymHistory=[];state.students.push(payload);} saveAndRefresh(id?`Aluno ${payload.name} atualizado.`:`Aluno ${payload.name} cadastrado.`); closeModal('studentModal');}
 function nextId(){return state.students.reduce((max,s)=>Math.max(max,Number(s.id)||0),0)+1;}
-async function saveAndRefresh(message){try{await saveCache();renderAll();setSyncStatus('Salvo neste aparelho','ok');toast(message);return true;}catch(error){setSyncStatus('Erro ao salvar cofre','error');toast('Não consegui salvar os dados criptografados. Confira o espaço disponível e tente novamente.','error');return false;}}
+async function saveAndRefresh(message){try{const result=await saveCache();renderAll();setSyncStatus(result.cloud?'Sincronizado na nuvem':'Salvo só neste aparelho',result.cloud?'ok':'warn');toast(message);return true;}catch(error){setSyncStatus('Sincronização pendente','error');toast(error.localSaved?'A cópia local está protegida, mas a nuvem não confirmou. Tente sincronizar novamente.':'Não consegui salvar os dados criptografados.','error');return false;}}
 function editStudent(id){const s=state.students.find(x=>String(x.id)===String(id));if(s)openStudentForm(s);}
 function deleteStudent(id){const s=state.students.find(x=>String(x.id)===String(id));if(!s)return;openConfirm('Excluir aluno?',`O aluno ${s.name} e todo o histórico dele serão removidos. Essa ação não pode ser desfeita.`,async()=>{state.students=state.students.filter(x=>String(x.id)!==String(id));await saveAndRefresh('Aluno excluído.');});}
 function confirmPayment(){const s=state.students.find(x=>String(x.id)===String(activeStudentId));if(!s)return;const amount=s.value;openConfirm('Confirmar pagamento?',`Registrar ${money(amount)} para ${s.name} e avançar o vencimento em um mês?`,async()=>{const paidAt=todayISO();if(!s.paymentHistory)s.paymentHistory=[];s.paymentHistory.push({month:monthLabel(paidAt),value:amount,date:paidAt});s.payment='Pago';s.due=addMonthsPreserveDay(s.due||paidAt,1);await saveAndRefresh('Pagamento confirmado. Próximo vencimento atualizado.');renderProfile();});}
@@ -298,17 +347,24 @@ function downloadMarketingCard(){const canvas=$('marketingCanvas');if(!canvas?.d
 
 function exportCsv(){const rows=[['Nome','Email','Telefone','Plano','Valor','Vencimento','Status']];state.students.forEach(s=>rows.push([s.name,s.email,s.phone,s.plan,s.value,s.due,displayStatus(s).label]));const cell=v=>{let value=String(v??'');if(/^[\s\u0000-\u001f]*[=+\-@]/.test(value))value="'"+value;return `"${value.replace(/"/g,'""')}"`;};const csv='\uFEFF'+rows.map(r=>r.map(cell).join(';')).join('\n');downloadBlob(csv,'AROEIRA_ALUNOS.csv','text/csv;charset=utf-8');}
 async function backupJson(){
-  try{await saveCache();const record=await readVaultRecord();if(!record)throw new Error('O cofre ainda não foi salvo.');const backup={...record};delete backup.id;backup.exportedAt=new Date().toISOString();downloadBlob(JSON.stringify(backup,null,2),'AROEIRA_BACKUP_CRIPTOGRAFADO.json','application/json');toast('Backup criptografado baixado. Guarde também a senha do cofre.');}
+  let pending=false;
+  try{try{await saveCache();}catch(error){if(!error.localSaved)throw error;pending=true;}const record=await readVaultRecord();if(!record)throw new Error('O cofre ainda não foi salvo.');const backup={...record};delete backup.id;delete backup.cloudRevision;backup.exportedAt=new Date().toISOString();downloadBlob(JSON.stringify(backup,null,2),'AROEIRA_BACKUP_CRIPTOGRAFADO.json','application/json');toast(pending?'Backup criptografado baixado; a nuvem ainda não confirmou a sincronização.':'Backup criptografado baixado. Guarde também a senha do cofre.');}
   catch(error){toast(error.message||'Não consegui gerar o backup.','error');}
 }
 async function changeVaultPassword(){
-  const first=prompt('Digite a nova senha do cofre (recomendado: pelo menos 10 caracteres):');if(first===null)return;if(!String(first).trim()){toast('A senha não pode ficar vazia.','error');return;}
-  if(String(first).length<10&&!window.confirm('Essa senha é curta e facilita ataques contra um backup roubado. Continuar mesmo assim?'))return;
+  if(!cloudToken){toast('Conecte à nuvem para trocar a senha administrativa.','error');return;}
+  const first=prompt('Digite a nova senha (mínimo 24 caracteres):');if(first===null)return;if(String(first).length<24){toast('Use uma senha com pelo menos 24 caracteres.','error');return;}
   const second=prompt('Digite novamente a nova senha:');if(second===null)return;
   if(first!==second){toast('As senhas não coincidem.','error');return;}
-  const oldKey=vaultKey,oldSalt=vaultSalt;
-  try{vaultSalt=crypto.getRandomValues(new Uint8Array(16));vaultKey=await deriveVaultKey(first,vaultSalt);await saveCache();toast('Senha do cofre alterada. Backups antigos ainda usam a senha anterior.');}
-  catch{vaultKey=oldKey;vaultSalt=oldSalt;toast('Não consegui trocar a senha. O cofre anterior foi mantido.','error');}
+  try{
+    await saveQueue;
+    const newSalt=crypto.getRandomValues(new Uint8Array(16)),newKey=await deriveVaultKey(first,newSalt);
+    const snapshot=JSON.parse(JSON.stringify({students:state.students,history:state.history,lastUpdate:state.lastUpdate||new Date().toISOString()}));
+    const record=await encryptVaultRecord(snapshot,newKey,newSalt);
+    const saved=await cloudRequest('/api/auth/change-password',{method:'POST',body:{newPassword:first,expectedRevision:cloudRevision,record}});
+    vaultKey=newKey;vaultSalt=newSalt;cloudRevision=Number(saved.revision);record.cloudRevision=cloudRevision;await writeVaultRecord(record);cloudOnline=true;
+    setSyncStatus('Sincronizado na nuvem','ok');toast('Senha alterada na nuvem e neste aparelho. Backups antigos ainda usam a senha anterior.');
+  }catch(error){toast(error.message||'Não consegui trocar a senha; a senha anterior foi mantida.','error');}
 }
 function downloadBlob(content,name,type){const blob=new Blob([content],{type});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),500);}
 async function importBackup(file){
@@ -323,14 +379,14 @@ async function importBackup(file){
     else throw new Error('O arquivo não possui os dados esperados.');
     openConfirm('Restaurar backup?',`${data.students.length} alunos serão importados e os dados atuais serão substituídos. ${encrypted?'O backup será recriptografado para este cofre.':'Este JSON está sem criptografia e será protegido ao ser salvo.'}`,async()=>{
       const previous=JSON.parse(JSON.stringify(state));
-      try{normalizeState(data);await saveCache();renderAll();$('importStatus').textContent='Backup importado e criptografado neste aparelho.';setSyncStatus('Salvo neste aparelho','ok');toast('Backup restaurado com sucesso.');}
-      catch(error){normalizeState(previous);renderAll();$('importStatus').textContent='Erro ao salvar o backup criptografado.';toast('Falha ao salvar; os dados anteriores foram restaurados na tela.','error');}
+      try{normalizeState(data);const result=await saveCache();renderAll();$('importStatus').textContent=result.cloud?'Backup criptografado e sincronizado com a nuvem.':'Backup salvo criptografado neste aparelho; nuvem desconectada.';setSyncStatus(result.cloud?'Sincronizado na nuvem':'Salvo só neste aparelho',result.cloud?'ok':'warn');toast(result.cloud?'Backup restaurado e sincronizado.':'Backup restaurado localmente; sincronização pendente.');}
+      catch(error){if(error.localSaved){renderAll();$('importStatus').textContent='Backup protegido neste aparelho; a nuvem não confirmou a sincronização.';setSyncStatus('Sincronização pendente','error');toast('Backup local salvo; tente sincronizar novamente.','error');return;}normalizeState(previous);renderAll();$('importStatus').textContent='Erro ao salvar o backup criptografado.';toast('Falha ao salvar; os dados anteriores foram restaurados na tela.','error');}
     });
   }catch(error){$('importStatus').textContent='Erro: '+error.message;toast(error.message,'error');}
 }
 
 
-$('loginForm').addEventListener('submit',async e=>{e.preventDefault();const form=e.currentTarget;const button=form.querySelector('button[type="submit"]');const originalText=button.textContent;button.disabled=true;button.textContent='Abrindo cofre...';$('loginError').classList.add('hidden');try{const result=await login($('user').value.trim(),$('pass').value);$('pass').value='';lastActivityAt=Date.now();showApp();renderAll();setSyncStatus('Cofre local ativo','ok');if(result.created&&!result.imported)toast('Cofre criado vazio neste aparelho. Importe um backup para trazer seus dados antigos.','error');else if(result.imported)toast('Dados locais antigos foram criptografados neste aparelho.');}catch(error){$('loginError').textContent=error.message||'Não foi possível abrir o cofre local.';$('loginError').classList.remove('hidden');}finally{button.disabled=false;button.textContent=originalText;}});
+$('loginForm').addEventListener('submit',async e=>{e.preventDefault();const form=e.currentTarget;const button=form.querySelector('button[type="submit"]');const originalText=button.textContent;button.disabled=true;button.textContent='Conectando à nuvem...';$('loginError').classList.add('hidden');try{const result=await login($('user').value.trim(),$('pass').value);$('pass').value='';lastActivityAt=Date.now();showApp();renderAll();setSyncStatus('Sincronizado na nuvem','ok');if(result.created&&!result.imported)toast('Cofre criado vazio e sincronizado. Importe o backup para trazer os dados antigos.','error');else if(result.imported)toast('Dados locais protegidos e sincronizados com a nuvem.');}catch(error){$('loginError').textContent=error.message||'Não foi possível conectar ao cofre na nuvem.';$('loginError').classList.remove('hidden');}finally{button.disabled=false;button.textContent=originalText;}});
 $('logoutBtn').addEventListener('click',()=>logout());
 $('kpiLate').addEventListener('click',()=>{overdueFilter='all';renderOverdueModal();});
 qsa('[data-reminder-filter]').forEach(b=>b.addEventListener('click',()=>{overdueFilter=b.dataset.reminderFilter;renderOverdueModal();}));
@@ -359,7 +415,7 @@ async function boot(){
   try{
     if(!window.crypto?.subtle)throw new Error('Abra este sistema por HTTPS para usar criptografia local.');
     const record=await readVaultRecord(),legacy=readLegacyLocalData(),legacyFound=hasLegacyLocalData();
-    $('loginNote').textContent=record&&legacyFound?'Cofre encontrado. Também há dados antigos locais que serão preservados; confira antes de limpar o navegador.':record?'Cofre criptografado encontrado neste aparelho. Digite a senha para abrir.':legacy?'Dados antigos detectados neste navegador; serão criptografados ao criar o cofre.':legacyFound?'Há dados antigos em formato não reconhecido; não criarei um cofre vazio nem apagarei esses dados.':'Primeiro acesso cria um cofre vazio neste aparelho. Importe um backup para trazer dados existentes.';
+    $('loginNote').textContent=record&&legacyFound?'Cofre local encontrado; também há dados antigos que serão preservados. A versão sincronizada fica na nuvem.':record?'Cofre criptografado encontrado. O acesso carrega a cópia sincronizada na nuvem.':legacy?'Dados antigos detectados neste navegador; serão protegidos e sincronizados após o login.':legacyFound?'Há dados antigos em formato não reconhecido; não apagarei nem substituirei esses dados.':'Entre com Admin e a senha para carregar o cofre criptografado e sincronizado na nuvem.';
   }catch(error){$('loginError').textContent=error.message||'Este navegador não oferece o armazenamento necessário.';$('loginError').classList.remove('hidden');$('loginForm').querySelector('button[type="submit"]').disabled=true;}
   for(const eventName of ['pointerdown','keydown','touchstart'])window.addEventListener(eventName,()=>{if(vaultKey)lastActivityAt=Date.now();},{passive:true});
   window.setInterval(()=>{if(vaultKey&&Date.now()-lastActivityAt>15*60*1000)logout(false);},30000);
