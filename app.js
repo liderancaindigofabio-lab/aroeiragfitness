@@ -1,10 +1,7 @@
 'use strict';
 
-const API_BASE = window.AROEIRA_API_URL || 'https://aroeira-gfitness-sync.onrender.com';
-const CACHE_KEY = 'aroeiraGfitness.cache.v3';
-const TOKEN_KEY = 'aroeiraGfitness.session';
-const PENDING_KEY = 'aroeiraGfitness.pending';
-const USERNAME = 'admin';
+try { localStorage.removeItem('aroeiraGfitness.cache.v3'); } catch {}
+let pendingExported = false;
 
 let state = { students: [], history: [], lastUpdate: null };
 let activeStudentId = null;
@@ -72,43 +69,42 @@ function paymentEntries() {
 function dueSoonStudents() { return state.students.map(s=>({s,d:daysUntil(s.due)})).filter(x=>x.d!==null && x.d>=0 && x.d<=7).sort((a,b)=>a.d-b.d); }
 function toast(message,type='success') { const el=$('toast'); el.textContent=message; el.className=`toast show ${type}`; clearTimeout(toastTimer); toastTimer=setTimeout(()=>el.className='toast',3200); }
 function setSyncStatus(text,tone='') { const el=$('syncBadge'); el.className=`sync-badge ${tone}`; el.innerHTML=`<span class="dot"></span><span>${escapeHtml(text)}</span>`; }
-function saveCache(){ try{ localStorage.setItem(CACHE_KEY,JSON.stringify(state)); }catch{} }
-function loadCache(){ try{ const data=JSON.parse(localStorage.getItem(CACHE_KEY)||'null'); if(data?.students){normalizeState(data); return true;} }catch{} return false; }
-function token(){ return sessionStorage.getItem(TOKEN_KEY)||''; }
-function setToken(t){ sessionStorage.setItem(TOKEN_KEY,t); }
-function clearToken(){ sessionStorage.removeItem(TOKEN_KEY); }
-async function request(path, options={}, timeout=12000){
-  const controller=new AbortController(); const timer=setTimeout(()=>controller.abort(),timeout);
-  const headers=new Headers(options.headers||{}); headers.set('Content-Type','application/json'); if(token())headers.set('Authorization',`Bearer ${token()}`);
-  try{ const res=await fetch(`${API_BASE}${path}`,{...options,headers,signal:controller.signal,cache:'no-store'}); const data=await res.json().catch(()=>({})); if(!res.ok){const err=new Error(data.error||`HTTP ${res.status}`);err.status=res.status;throw err;} return data; } finally{clearTimeout(timer);}
-}
-async function login(username,password){
-  const data=await request('/api/auth/login',{method:'POST',body:JSON.stringify({username,password})},10000); setToken(data.token); return data;
-}
-async function loadCloud(){ const data=await request('/api/sync',{method:'GET'},12000); normalizeState(data); saveCache(); return data; }
+function token(){ return window.AGFStorage.token(); }
+function clearToken(){ window.AGFStorage.clearToken(); }
+function hasPendingChanges(){ return window.AGFStorage.hasPending(); }
+async function loadCloud(){ const remote=await window.AGFStorage.load(); normalizeState(remote.data);  return remote.data; }
 async function persistCloud(){
-  const payload={students:state.students,history:state.history,expectedLastUpdate:state.lastUpdate};
-  try{ const result=await request('/api/sync',{method:'POST',body:JSON.stringify(payload)},15000); localStorage.removeItem(PENDING_KEY); state.lastUpdate=result.lastUpdate||new Date().toISOString(); saveCache(); setSyncStatus(`Sincronizado ${new Date(state.lastUpdate).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}`,'ok'); return true; }
-  catch(error){
-    if(error.status===409){ localStorage.removeItem(PENDING_KEY); await loadCloud(); renderAll(); setSyncStatus(`Atualizado agora · ${new Date(state.lastUpdate).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}`,'ok'); toast('Outro aparelho atualizou os dados. Sua alteração não foi sobrescrita; confira e tente novamente.','error'); return false; }
-    localStorage.setItem(PENDING_KEY,JSON.stringify(payload)); setSyncStatus('Alteração pendente de sincronização','warn'); toast('Alteração salva neste dispositivo, mas ainda não foi enviada à nuvem.','error'); return false;
-  }
+  const snapshot={students:state.students,history:state.history};
+  try{
+    const result=await window.AGFStorage.save(snapshot);
+    if(result.ok){ normalizeState(result.data);  setSyncStatus(`Sincronizado ${new Date(state.lastUpdate).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}`,'ok'); return true; }
+    if(result.conflict){ normalizeState(result.data);  renderAll(); setSyncStatus('Conflito · alteração local preservada','warn'); updatePendingNotice(); toast('Outro aparelho atualizou os dados. Sua alteração ficou guardada neste dispositivo; confira a pendência antes de reenviar.','error'); return false; }
+    setSyncStatus('Pendência local preservada','warn'); updatePendingNotice(); toast('Há uma pendência local ainda não sincronizada. Ela foi preservada para revisão.','error'); return false;
+  }catch(error){  setSyncStatus('GitHub indisponível · alteração pendente','error'); updatePendingNotice(); toast(githubErrorMessage(error),'error'); return false; }
 }
 async function syncNow(showToast=true){
-  if(syncBusy)return; syncBusy=true; setSyncStatus('Sincronizando...','warn');
+  if(syncBusy)return; syncBusy=true; setSyncStatus('Sincronizando pelo GitHub...','warn');
   try{
-    const pending=localStorage.getItem(PENDING_KEY);
-    if(pending){
-      try{ const payload=JSON.parse(pending); const result=await request('/api/sync',{method:'POST',body:JSON.stringify(payload)},15000); localStorage.removeItem(PENDING_KEY); state.lastUpdate=result.lastUpdate||null; }
-      catch(e){ if(e.status===409){ localStorage.removeItem(PENDING_KEY); await loadCloud(); renderAll(); setSyncStatus(`Atualizado agora · ${new Date(state.lastUpdate).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}`,'ok'); toast('Havia uma alteração mais recente em outro aparelho. Ela foi preservada.','error'); return; } }
-    }
-    await loadCloud(); renderAll(); setSyncStatus(`Sincronizado ${new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}`,'ok'); if(showToast)toast('Dados sincronizados.');
-  }catch(error){ if(error.status===401){logout(false); toast('Sessão expirada.','error');} else { setSyncStatus('Servidor indisponível · cache local','error'); if(!loadCache())toast('Não foi possível carregar os dados.','error'); else {renderAll(); if(showToast)toast('Servidor indisponível. Exibindo a última cópia local; nenhuma alteração foi sobrescrita.','error');} } }
+    const result=await window.AGFStorage.sync();
+    normalizeState(result.data);  renderAll(); updatePendingNotice();
+    if(result.pendingConflict){ setSyncStatus('Online · pendência local preservada','warn'); if(showToast)toast('Encontrei uma edição antiga deste aparelho. Não a enviei para evitar sobrescrever dados recentes. Baixe e revise a pendência nas configurações.','error'); }
+    else { setSyncStatus(`Sincronizado ${new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}`,'ok'); if(showToast)toast(result.pendingSynced?'Pendência segura sincronizada.':'Dados sincronizados.'); }
+  }catch(error){ updatePendingNotice(); if(error.status===401){logout(false,'Token inválido ou expirado. Entre novamente com um token válido.');} else { setSyncStatus('GitHub indisponível','error'); if(showToast)toast(githubErrorMessage(error),'error'); } }
   finally{syncBusy=false;}
 }
+function githubErrorMessage(error){
+  if(error?.status===400)return 'Use um token Fine-grained do GitHub, restrito ao repositório privado de dados.';
+  if(error?.status===401)return 'Token inválido ou expirado. Confira o token Fine-grained do GitHub.';
+  if(error?.status===403)return 'O token não tem permissão de leitura e gravação de conteúdo no repositório privado da academia.';
+  if(error?.status===404)return 'O GitHub não encontrou o arquivo privado. Confira se o token foi limitado ao repositório de dados correto.';
+  if(error?.name==='TypeError'||error?.name==='AbortError')return 'Não consegui conectar ao GitHub. Confira a internet e tente novamente.';
+  if(error?.code==='LOCAL_PENDING')return 'Há uma pendência local. Exporte e revise-a antes de continuar.';
+  return 'Não foi possível sincronizar com o GitHub. Nenhum dado remoto foi substituído.';
+}
+function updatePendingNotice(){ const box=$('pendingNotice'); if(box)box.classList.toggle('hidden',!hasPendingChanges()); }
 function showApp(){ $('loginScreen').classList.add('hidden'); $('appShell').classList.remove('hidden'); }
-function showLogin(){ $('appShell').classList.add('hidden'); $('loginScreen').classList.remove('hidden'); $('pass').value=''; }
-function logout(show=true){ clearToken(); showLogin(); if(show)toast('Sessão encerrada.'); }
+function showLogin(){ $('appShell').classList.add('hidden'); $('loginScreen').classList.remove('hidden'); const field=$('githubToken'); if(field)field.value=''; }
+function logout(show=true,message=''){ clearToken(); state={students:[],history:[],lastUpdate:null}; try{const notice=message||(show?'Sessão encerrada.':'');if(notice)sessionStorage.setItem('aroeiraGfitness.loginNotice',notice);}catch{} window.location.reload(); }
 function switchTab(tab){ qsa('.tab').forEach(x=>x.classList.toggle('active',x.id===`tab-${tab}`)); qsa('.nav-item[data-tab]').forEach(x=>x.classList.toggle('active',x.dataset.tab===tab)); const titles={dashboard:'Dashboard',students:'Alunos',marketing:'Marketing',history:'Histórico de pagamentos',backup:'Backup e configurações'}; $('pageTitle').textContent=titles[tab]||'Dashboard'; if(window.innerWidth<=760)$('sidebar').classList.remove('open'); if(tab==='dashboard')renderDashboard(); if(tab==='students')renderStudents(); if(tab==='history')renderHistory(); }
 function badge(status){ return `<span class="badge ${status.tone}">${escapeHtml(status.label)}</span>`; }
 function renderDashboard(){
@@ -133,11 +129,11 @@ function renderStudents(){
   const tbody=$('studentsTable'); const search=$('search').value.trim().toLowerCase(); const filter=$('filter').value; let rows=[...state.students];
   if(filter==='ProxVencimento')rows.sort((a,b)=>(daysUntil(a.due)??9999)-(daysUntil(b.due)??9999)); if(filter==='DistVencimento')rows.sort((a,b)=>(daysUntil(b.due)??-9999)-(daysUntil(a.due)??-9999));
   rows=rows.filter(s=>{const text=`${s.name} ${s.phone} ${s.email}`.toLowerCase(); if(search&&!text.includes(search))return false; const st=statusFor(s).label, disp=displayStatus(s).label; if(['Em Dia','Pendente','Vencido','Atrasado'].includes(filter)&&st!==filter)return false; if(filter==='Pago'&&disp!=='Pago')return false; return true;});
-  $('studentCount').textContent=`${rows.length} aluno${rows.length===1?'':'s'}`; $('studentEmpty').classList.toggle('hidden',rows.length>0); tbody.innerHTML=rows.map(s=>`<tr><td><div class="student-name">${escapeHtml(s.name)}</div><span class="student-meta">${escapeHtml(s.phone||s.email||'Sem contato')}</span></td><td>${escapeHtml(s.plan||'Sem plano')}<span class="student-meta">${money(s.value)}</span></td><td>${formatDate(s.due)}</td><td>${badge(displayStatus(s))}</td><td><div class="row-actions"><button class="mini-btn gold" data-action="profile" data-id="${s.id}">Perfil</button><button class="mini-btn" data-action="edit" data-id="${s.id}">Editar</button><button class="mini-btn red" data-action="delete" data-id="${s.id}">Excluir</button></div></td></tr>`).join('');
+  $('studentCount').textContent=`${rows.length} aluno${rows.length===1?'':'s'}`; $('studentEmpty').classList.toggle('hidden',rows.length>0); tbody.innerHTML=rows.map(s=>`<tr><td><div class="student-name">${escapeHtml(s.name)}</div><span class="student-meta">${escapeHtml(s.phone||s.email||'Sem contato')}</span></td><td>${escapeHtml(s.plan||'Sem plano')}<span class="student-meta">${money(s.value)}</span></td><td>${formatDate(s.due)}</td><td>${badge(displayStatus(s))}</td><td><div class="row-actions"><button class="mini-btn gold" data-action="profile" data-id="${escapeHtml(s.id)}">Perfil</button><button class="mini-btn" data-action="edit" data-id="${escapeHtml(s.id)}">Editar</button><button class="mini-btn red" data-action="delete" data-id="${escapeHtml(s.id)}">Excluir</button></div></td></tr>`).join('');
 }
 function renderHistory(){
   const entries=paymentEntries(); const now=todayISO(); $('historyMonth').textContent=money(totalRevenue('month')); $('historyYear').textContent=money(totalRevenue('year')); $('historyCount').textContent=entries.length;
-  $('historyEmpty').classList.toggle('hidden',entries.length>0); $('historyTable').innerHTML=entries.map(({student,payment})=>`<tr><td>${formatDate(payment.date)}</td><td><div class="student-name">${escapeHtml(student.name)}</div><span class="student-meta">${escapeHtml(student.plan||'Sem plano')}</span></td><td>${escapeHtml(payment.month||monthLabel(payment.date))}</td><td><strong class="history-value">${money(payment.value)}</strong></td><td><div class="row-actions"><button class="mini-btn" data-action="profile-payment" data-id="${student.id}">Abrir aluno</button></div></td></tr>`).join('');
+  $('historyEmpty').classList.toggle('hidden',entries.length>0); $('historyTable').innerHTML=entries.map(({student,payment})=>`<tr><td>${formatDate(payment.date)}</td><td><div class="student-name">${escapeHtml(student.name)}</div><span class="student-meta">${escapeHtml(student.plan||'Sem plano')}</span></td><td>${escapeHtml(payment.month||monthLabel(payment.date))}</td><td><strong class="history-value">${money(payment.value)}</strong></td><td><div class="row-actions"><button class="mini-btn" data-action="profile-payment" data-id="${escapeHtml(student.id)}">Abrir aluno</button></div></td></tr>`).join('');
 }
 function renderAll(){ renderDashboard(); renderStudents(); renderHistory(); populatePlans(); }
 function populatePlans(){ const plans=[...new Set(state.students.map(s=>normalizePlan(s.plan)).filter(Boolean))].sort(); const select=$('plan'); const current=select.value; select.innerHTML='<option value="">Sem plano</option>'+plans.map(p=>`<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join(''); if(plans.includes(current))select.value=current; }
@@ -157,7 +153,7 @@ function evalField(id,label,type,value=''){return `<label>${escapeHtml(label)}<i
 function openConfirm(title,message,handler){$('confirmTitle').textContent=title;$('confirmMessage').textContent=message;confirmHandler=handler;openModal('confirmModal');}
 function saveStudentFromForm(e){ e.preventDefault(); const id=$('studentId').value; const payload={name:$('name').value.trim().toUpperCase(),phone:$('phone').value.trim(),email:$('email').value.trim(),plan:normalizePlan($('plan').value),value:parseMoney($('value').value),due:$('due').value,payment:$('payment').value}; if(!payload.name||!payload.due){toast('Preencha nome e vencimento.','error');return;} if(id){const s=state.students.find(x=>String(x.id)===String(id)); if(!s)return; const oldDue=String(s.due||''); const paymentHistory=Array.isArray(s.paymentHistory)?s.paymentHistory:[]; const dueWasAdvanced=Boolean(oldDue&&payload.due>oldDue); if(dueWasAdvanced){const paidAt=todayISO(); const alreadyRegistered=paymentHistory.some(p=>String(p.date)===paidAt&&Number(p.value)===Number(payload.value)); if(!alreadyRegistered)paymentHistory.push({month:monthLabel(paidAt),value:payload.value,date:paidAt}); payload.payment='Pago';} const preserved={evaluations:Array.isArray(s.evaluations)?s.evaluations:[],paymentHistory,gymHistory:Array.isArray(s.gymHistory)?s.gymHistory:[]}; Object.assign(s,payload,preserved); } else {payload.id=nextId();payload.evaluations=[];payload.paymentHistory=[];payload.gymHistory=[];state.students.push(payload);} saveAndRefresh(id?`Aluno ${payload.name} atualizado.`:`Aluno ${payload.name} cadastrado.`); closeModal('studentModal');}
 function nextId(){return state.students.reduce((max,s)=>Math.max(max,Number(s.id)||0),0)+1;}
-async function saveAndRefresh(message){ saveCache();renderAll();toast(message);await persistCloud(); }
+async function saveAndRefresh(message){ renderAll();toast(message);await persistCloud(); }
 function editStudent(id){const s=state.students.find(x=>String(x.id)===String(id));if(s)openStudentForm(s);}
 function deleteStudent(id){const s=state.students.find(x=>String(x.id)===String(id));if(!s)return;openConfirm('Excluir aluno?',`O aluno ${s.name} e todo o histórico dele serão removidos. Essa ação não pode ser desfeita.`,async()=>{state.students=state.students.filter(x=>String(x.id)!==String(id));await saveAndRefresh('Aluno excluído.');});}
 function confirmPayment(){const s=state.students.find(x=>String(x.id)===String(activeStudentId));if(!s)return;const amount=s.value;openConfirm('Confirmar pagamento?',`Registrar ${money(amount)} para ${s.name} e avançar o vencimento em um mês?`,async()=>{const paidAt=todayISO();if(!s.paymentHistory)s.paymentHistory=[];s.paymentHistory.push({month:monthLabel(paidAt),value:amount,date:paidAt});s.payment='Pago';s.due=addMonthsPreserveDay(s.due||paidAt,1);await saveAndRefresh('Pagamento confirmado. Próximo vencimento atualizado.');renderProfile();});}
@@ -185,7 +181,7 @@ function renderOverdueModal(){
   const all=overdueStudents();
   const list=overdueFilter==='all'?all:all.filter(s=>statusFor(s).label.toLowerCase()===overdueFilter);
   qsa('[data-reminder-filter]').forEach(b=>b.classList.toggle('active',b.dataset.reminderFilter===overdueFilter));
-  $('overdueList').innerHTML=list.length?list.map(s=>{const st=statusFor(s); return `<div class="overdue-row"><div class="list-main"><strong>${escapeHtml(s.name)}</strong><small>${badge(st)} · venceu em ${formatDate(s.due)}</small></div><button class="secondary-btn" data-reminder-id="${s.id}" ${s.phone?'':'disabled'}>WhatsApp</button></div>`;}).join(''):'<div class="empty"><p>Nenhum aluno vencido ou atrasado.</p></div>';
+  $('overdueList').innerHTML=list.length?list.map(s=>{const st=statusFor(s); return `<div class="overdue-row"><div class="list-main"><strong>${escapeHtml(s.name)}</strong><small>${badge(st)} · venceu em ${formatDate(s.due)}</small></div><button class="secondary-btn" data-reminder-id="${escapeHtml(s.id)}" ${s.phone?'':'disabled'}>WhatsApp</button></div>`;}).join(''):'<div class="empty"><p>Nenhum aluno vencido ou atrasado.</p></div>';
   openModal('overdueModal');
 }
 function pixPayload(key,name,city,value,desc){const f=(id,val)=>id+String(val.length).padStart(2,'0')+val;const gui='br.gov.bcb.pix';let merchant=f('00',gui)+f('01',key)+f('02',desc.slice(0,25));let p=f('00','01')+f('26',merchant)+f('52','0000')+f('53','986')+f('54',value)+f('58','BR')+f('59',name.slice(0,25))+f('60',city.slice(0,15))+f('62',f('05','***'));return p+'6304'+crc16(p);}
@@ -231,12 +227,30 @@ function downloadMarketingCard(){const canvas=$('marketingCanvas');if(!canvas?.d
 
 function exportCsv(){const rows=[['Nome','Email','Telefone','Plano','Valor','Vencimento','Status']];state.students.forEach(s=>rows.push([s.name,s.email,s.phone,s.plan,s.value,s.due,displayStatus(s).label]));const csv='\uFEFF'+rows.map(r=>r.map(v=>`"${String(v??'').replace(/"/g,'""')}"`).join(';')).join('\n');downloadBlob(csv,'AROEIRA_ALUNOS.csv','text/csv;charset=utf-8');}
 function backupJson(){downloadBlob(JSON.stringify({students:state.students,history:state.history,lastUpdate:state.lastUpdate},null,2),'AROEIRA_BACKUP.json','application/json');}
+function exportPendingBackup(){const pending=window.AGFStorage.exportPending();if(!pending){toast('Não há pendência local para exportar.','error');updatePendingNotice();return;}downloadBlob(pending,'AROEIRA_PENDENCIAS_LOCAIS.json','application/json');pendingExported=true;toast('Cópia das pendências baixada. Guarde-a antes de remover a pendência local.');}
+function clearPendingBackup(){if(!window.AGFStorage.hasPending()){updatePendingNotice();toast('Não há pendência local.');return;}if(!pendingExported){toast('Baixe primeiro a cópia das pendências.','error');return;}openConfirm('Remover pendências deste aparelho?','Isso apaga apenas a cópia local depois de você ter baixado o arquivo. Não altera os dados do GitHub.',async()=>{window.AGFStorage.clearPending();pendingExported=false;updatePendingNotice();await syncNow(false);toast('Pendência local removida.');});}
 function downloadBlob(content,name,type){const blob=new Blob([content],{type});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),500);}
-async function importBackup(file){if(!file)return;try{const data=JSON.parse(await file.text());if(!Array.isArray(data.students))throw new Error('O arquivo não possui uma lista de alunos.');openConfirm('Importar backup?',`O backup contém ${data.students.length} alunos. Os dados atuais serão substituídos.`,async()=>{normalizeState(data);saveCache();renderAll();const ok=await persistCloud();$('importStatus').textContent=ok?'Backup importado e sincronizado.':'Backup importado localmente; sincronização pendente.';});}catch(error){$('importStatus').textContent='Erro: '+error.message;toast(error.message,'error');}}
-async function changePassword(){const current=prompt('Digite a senha atual:');if(current===null)return;const next=prompt('Digite a nova senha (mínimo 6 caracteres):');if(next===null)return;if(next.length<6){toast('A nova senha precisa ter pelo menos 6 caracteres.','error');return;}try{await request('/api/auth/change-password',{method:'POST',body:JSON.stringify({currentPassword:current,newPassword:next})},10000);toast('Senha alterada com sucesso.');}catch(error){toast(error.status===401?'Senha atual inválida.':'Não foi possível alterar a senha.','error');}}
-
-async function loginWithRetry(username,password){let lastError;for(let attempt=0;attempt<3;attempt++){try{return await login(username,password);}catch(error){lastError=error;if(error.status===401||error.status===403)throw error;if(attempt<2){$('loginError').textContent=attempt===0?'Conectando ao servidor... aguarde.':'O servidor está iniciando. Ainda estamos tentando conectar...';$('loginError').classList.remove('hidden');await new Promise(resolve=>setTimeout(resolve,4000));}}}throw lastError;}
-$('loginForm').addEventListener('submit',async e=>{e.preventDefault();const form=e.currentTarget;const button=form.querySelector('button[type="submit"]');const originalText=button.textContent;button.disabled=true;button.textContent='Conectando...';$('loginError').classList.add('hidden');try{await loginWithRetry($('user').value.trim(),$('pass').value);showApp();if(!loadCache())setSyncStatus('Carregando dados...','warn');await syncNow(false);if(!state.students.length&&!loadCache())toast('A conta está sem dados cadastrados.','error');renderAll();}catch(error){$('loginError').textContent=error.status===401?'Usuário ou senha inválidos.':'O servidor demorou para responder. Aguarde alguns segundos e tente novamente.';$('loginError').classList.remove('hidden');}finally{button.disabled=false;button.textContent=originalText;}});
+async function importBackup(file){if(!file)return;try{const data=JSON.parse(await file.text());if(!Array.isArray(data.students))throw new Error('O arquivo não possui uma lista de alunos.');openConfirm('Importar backup?',`O backup contém ${data.students.length} alunos. Os dados atuais serão substituídos.`,async()=>{normalizeState(data);renderAll();const ok=await persistCloud();$('importStatus').textContent=ok?'Backup importado e sincronizado.':'Backup importado localmente; sincronização pendente.';});}catch(error){$('importStatus').textContent='Erro: '+error.message;toast(error.message,'error');}}
+$('loginForm').addEventListener('submit',async e=>{
+  e.preventDefault();
+  const form=e.currentTarget;
+  const button=form.querySelector('button[type="submit"]');
+  const originalText=button.textContent;
+  const input=$('githubToken');
+  const suppliedToken=input.value.trim();
+  button.disabled=true; button.textContent='Conectando ao GitHub...';
+  $('loginError').classList.add('hidden');
+  try{
+    const remote=await window.AGFStorage.connect(suppliedToken);
+    normalizeState(remote.data);  showApp();
+    await syncNow(false); renderAll(); updatePendingNotice();
+  }catch(error){
+    $('loginError').textContent=githubErrorMessage(error);
+    $('loginError').classList.remove('hidden');
+  }finally{
+    input.value=''; button.disabled=false; button.textContent=originalText;
+  }
+});
 $('logoutBtn').addEventListener('click',()=>logout());
 $('kpiLate').addEventListener('click',()=>{overdueFilter='all';renderOverdueModal();});
 qsa('[data-reminder-filter]').forEach(b=>b.addEventListener('click',()=>{overdueFilter=b.dataset.reminderFilter;renderOverdueModal();}));
@@ -250,7 +264,8 @@ qsa('.nav-item[data-tab]').forEach(btn=>btn.addEventListener('click',()=>switchT
 qsa('[data-tab-link]').forEach(btn=>btn.addEventListener('click',()=>switchTab(btn.dataset.tabLink)));
 $('newStudent').addEventListener('click',()=>openStudentForm());$('newStudentDash').addEventListener('click',()=>openStudentForm());
 $('studentForm').addEventListener('submit',saveStudentFromForm);$('search').addEventListener('input',renderStudents);$('filter').addEventListener('change',renderStudents);$('chartPeriod').addEventListener('change',()=>renderChart($('chartPeriod').value));$('viewDue').addEventListener('click',()=>{$('filter').value='ProxVencimento';switchTab('students');renderStudents();});
-$('exportCsvBtn').addEventListener('click',exportCsv);$('backupCsvBtn').addEventListener('click',exportCsv);$('backupBtn').addEventListener('click',backupJson);$('changePasswordBtn').addEventListener('click',changePassword);$('importFile').addEventListener('change',e=>importBackup(e.target.files[0]));
+$('exportCsvBtn').addEventListener('click',exportCsv);$('backupCsvBtn').addEventListener('click',exportCsv);$('backupBtn').addEventListener('click',backupJson);$('importFile').addEventListener('change',e=>importBackup(e.target.files[0]));
+$('exportPendingBtn').addEventListener('click',exportPendingBackup);$('clearPendingBtn').addEventListener('click',clearPendingBackup);
 $('confirmAction').addEventListener('click',async()=>{const handler=confirmHandler;confirmHandler=null;closeModal('confirmModal');if(handler)await handler();});
 qsa('[data-close]').forEach(btn=>btn.addEventListener('click',()=>closeModal(btn.dataset.close)));
 qsa('.overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)closeModal(o.id)}));
@@ -261,11 +276,14 @@ $('profileContent').addEventListener('submit',e=>{if(e.target.id==='evalForm')ad
 $('profileContent').addEventListener('click',e=>{if(e.target.id==='copyPixBtn')copyPix();if(e.target.id==='confirmPaymentBtn')confirmPayment();});
 
 function boot(){
-  loadCache();
   if(token()){
-    showApp();renderAll();setSyncStatus('Verificando sessão...','warn');syncNow(false);
-  } else {showLogin();}
+    showApp();setSyncStatus('Verificando acesso ao GitHub...','warn');syncNow(false);
+  } else {
+    showLogin();
+    try{const notice=sessionStorage.getItem('aroeiraGfitness.loginNotice');if(notice){$('loginError').textContent=notice;$('loginError').classList.remove('hidden');sessionStorage.removeItem('aroeiraGfitness.loginNotice');}}catch{}
+  }
   window.addEventListener('online',()=>{if(token())syncNow(false)});
   document.addEventListener('visibilitychange',()=>{if(!document.hidden&&token())syncNow(false)});
+  window.setInterval(()=>{if(token()&&!document.hidden)syncNow(false);},60000);
 }
 boot();

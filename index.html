@@ -5,13 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0a0a0b">
   <meta name="description" content="Sistema de gestão da Aroeira G Fitness">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://api.github.com; font-src 'self' data:; form-action 'self';">
   <title>Aroeira G Fitness · Gestão</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js" defer></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" defer></script>
-  <link rel="stylesheet" href="app.css?v=8">
+  <script src="vendor/chart.umd.min.js" defer></script>
+  <script src="vendor/qrcode.min.js" defer></script>
+  <script src="github-storage.js?v=1" defer></script>
+  <link rel="stylesheet" href="app.css?v=9">
 </head>
 <body>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
@@ -22,15 +21,14 @@
       <div class="brand-name">Aroeira <span>G</span></div>
       <div class="brand-sub">FITNESS · GESTÃO</div>
       <div class="login-divider"></div>
-      <h1>Acesso administrativo</h1>
-      <p class="muted">Entre para gerenciar alunos, pagamentos e avaliações.</p>
-      <form id="loginForm" autocomplete="on">
-        <label>Usuário<input id="user" name="username" value="admin" autocomplete="username" required></label>
-        <label>Senha<input id="pass" name="password" type="password" autocomplete="current-password" required></label>
-        <button class="primary-btn wide" type="submit">Entrar</button>
+      <h1>Acesso seguro pelo GitHub</h1>
+      <p class="muted">Conecte o token Fine-grained com acesso somente ao repositório privado de dados da academia.</p>
+      <form id="loginForm" autocomplete="off">
+        <label>Token Fine-grained do GitHub<input id="githubToken" name="github-token" type="password" placeholder="github_pat_…" autocomplete="new-password" autocapitalize="none" spellcheck="false" required></label>
+        <button class="primary-btn wide" type="submit">Conectar e sincronizar</button>
       </form>
       <div id="loginError" class="form-error hidden"></div>
-      <div class="login-note">Acesso protegido e dados sincronizados na nuvem.</div>
+      <div class="login-note">Crie um Fine-grained token limitado ao repositório privado aroeiragfitness-data, com <b>Contents: Read and write</b>. <a href="https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens" target="_blank" rel="noopener">Ver instruções do GitHub</a>. O token fica só nesta sessão e não é publicado no site.</div>
     </div>
   </section>
 
@@ -119,9 +117,10 @@
             <article class="panel setting-card"><div class="setting-icon">⇩</div><div><h3>Exportar backup</h3><p>Baixe uma cópia JSON dos dados atuais para guardar com segurança.</p></div><button class="secondary-btn" id="backupBtn">Baixar backup</button></article>
             <article class="panel setting-card"><div class="setting-icon">⇧</div><div><h3>Importar backup</h3><p>Substitui os dados atuais pelo conteúdo de um backup JSON.</p></div><label class="secondary-btn file-btn">Selecionar arquivo<input type="file" id="importFile" accept="application/json,.json"></label><div id="importStatus" class="small-status"></div></article>
             <article class="panel setting-card"><div class="setting-icon">▣</div><div><h3>Exportar planilha</h3><p>Gere uma planilha CSV compatível com Excel e Google Sheets.</p></div><button class="secondary-btn" id="backupCsvBtn">Exportar CSV</button></article>
-            <article class="panel setting-card"><div class="setting-icon">🔒</div><div><h3>Alterar senha</h3><p>A senha administrativa deve ter pelo menos 6 caracteres.</p></div><button class="secondary-btn" id="changePasswordBtn">Alterar senha</button></article>
+            <article class="panel setting-card"><div class="setting-icon">🔒</div><div><h3>Acesso pelo GitHub</h3><p>O token fica nesta sessão do navegador e não é gravado no repositório do site.</p></div></article>
           </div>
-          <article class="panel security-note"><strong>Segurança</strong><p>A senha não é mais armazenada no navegador. O acesso é autenticado pela API e a credencial persistente é mantida como hash.</p></article>
+          <article id="pendingNotice" class="panel security-note hidden" role="alert"><strong>Há uma alteração local pendente</strong><p>Ela não foi enviada para evitar substituir dados mais recentes. Baixe a cópia para revisar antes de remover esta pendência.</p><div class="modal-actions"><button class="secondary-btn" id="exportPendingBtn" type="button">Baixar pendência</button><button class="secondary-btn" id="clearPendingBtn" type="button">Remover após guardar</button></div></article>
+          <article class="panel security-note"><strong>Proteção dos dados</strong><p>O arquivo continua no repositório privado da academia. O painel só sincroniza quando há conexão com o GitHub; sem conexão, alterações ficam identificadas como pendentes e não são tratadas como dados atuais.</p></article>
         </section>
       </div>
     </main>
@@ -135,6 +134,6 @@
 
   <div id="overdueModal" class="overlay hidden"><div class="modal large"><button class="modal-close" data-close="overdueModal">×</button><div class="modal-head"><div><div class="eyebrow">ACOMPANHAMENTO</div><h2>Vencidos e atrasados</h2><p>Envie o lembrete adequado para cada aluno.</p></div></div><div class="reminder-filters" role="group" aria-label="Filtrar status"><button type="button" class="filter-chip active" data-reminder-filter="all">Todos</button><button type="button" class="filter-chip" data-reminder-filter="vencido">Vencidos</button><button type="button" class="filter-chip" data-reminder-filter="atrasado">Atrasados</button></div><div id="overdueList" class="overdue-list"></div></div></div>
 
-  <script src="app.js?v=13" defer></script>
+  <script src="app.js?v=15" defer></script>
 </body>
 </html>
