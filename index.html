@@ -5,12 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0a0a0b">
   <meta name="description" content="Sistema de gestão da Aroeira G Fitness">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://api.github.com; font-src 'self' data:; form-action 'self';">
   <title>Aroeira G Fitness · Gestão</title>
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; frame-ancestors 'none'; form-action 'self';">
   <script src="vendor/chart.umd.min.js" defer></script>
   <script src="vendor/qrcode.min.js" defer></script>
-  <script src="github-storage.js?v=1" defer></script>
-  <link rel="stylesheet" href="app.css?v=9">
+  <link rel="stylesheet" href="app.css?v=10">
 </head>
 <body>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
@@ -21,14 +20,15 @@
       <div class="brand-name">Aroeira <span>G</span></div>
       <div class="brand-sub">FITNESS · GESTÃO</div>
       <div class="login-divider"></div>
-      <h1>Acesso seguro pelo GitHub</h1>
-      <p class="muted">Conecte o token Fine-grained com acesso somente ao repositório privado de dados da academia.</p>
-      <form id="loginForm" autocomplete="off">
-        <label>Token Fine-grained do GitHub<input id="githubToken" name="github-token" type="password" placeholder="github_pat_…" autocomplete="new-password" autocapitalize="none" spellcheck="false" required></label>
-        <button class="primary-btn wide" type="submit">Conectar e sincronizar</button>
+      <h1>Acesso administrativo</h1>
+      <p class="muted">No primeiro acesso, sua senha cria um cofre neste aparelho; depois, ela o desbloqueia.</p>
+      <form id="loginForm" autocomplete="on">
+        <label>Login<input id="user" name="username" value="Admin" autocomplete="username" required></label>
+        <label>Senha<input id="pass" name="password" type="password" autocomplete="current-password" required></label>
+        <button class="primary-btn wide" type="submit">Entrar</button>
       </form>
       <div id="loginError" class="form-error hidden"></div>
-      <div class="login-note">Crie um Fine-grained token limitado ao repositório privado aroeiragfitness-data, com <b>Contents: Read and write</b>. <a href="https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens" target="_blank" rel="noopener">Ver instruções do GitHub</a>. O token fica só nesta sessão e não é publicado no site.</div>
+      <div id="loginNote" class="login-note">Dados criptografados neste aparelho. A transferência para outro aparelho é feita por backup manual.</div>
     </div>
   </section>
 
@@ -46,7 +46,7 @@
         <button class="nav-item" data-tab="backup"><span>⚙</span>Backup e configurações</button>
       </nav>
       <div class="sidebar-bottom">
-        <div id="syncBadge" class="sync-badge"><span class="dot"></span><span>Conectando...</span></div>
+        <div id="syncBadge" class="sync-badge"><span class="dot"></span><span>Cofre local bloqueado</span></div>
         <button class="nav-item danger" id="logoutBtn"><span>↪</span>Sair</button>
       </div>
     </aside>
@@ -56,7 +56,7 @@
         <button id="menuBtn" class="icon-btn mobile-only" aria-label="Abrir menu">☰</button>
         <div><div class="eyebrow">AROEIRA G FITNESS</div><h2 id="pageTitle">Dashboard</h2></div>
         <div class="topbar-actions">
-          <button id="syncBtn" class="secondary-btn">↻ Sincronizar</button>
+          <button id="syncBtn" class="secondary-btn">Salvar neste aparelho</button>
           <div class="admin-chip"><span class="avatar">AG</span><span><b>Administrador</b><small>Conta principal</small></span></div>
         </div>
       </header>
@@ -114,13 +114,12 @@
         <section id="tab-backup" class="tab">
           <div class="page-head"><div><h1>Backup e configurações</h1><p>Controle os dados locais, exportações e acesso administrativo.</p></div></div>
           <div class="settings-grid">
-            <article class="panel setting-card"><div class="setting-icon">⇩</div><div><h3>Exportar backup</h3><p>Baixe uma cópia JSON dos dados atuais para guardar com segurança.</p></div><button class="secondary-btn" id="backupBtn">Baixar backup</button></article>
-            <article class="panel setting-card"><div class="setting-icon">⇧</div><div><h3>Importar backup</h3><p>Substitui os dados atuais pelo conteúdo de um backup JSON.</p></div><label class="secondary-btn file-btn">Selecionar arquivo<input type="file" id="importFile" accept="application/json,.json"></label><div id="importStatus" class="small-status"></div></article>
-            <article class="panel setting-card"><div class="setting-icon">▣</div><div><h3>Exportar planilha</h3><p>Gere uma planilha CSV compatível com Excel e Google Sheets.</p></div><button class="secondary-btn" id="backupCsvBtn">Exportar CSV</button></article>
-            <article class="panel setting-card"><div class="setting-icon">🔒</div><div><h3>Acesso pelo GitHub</h3><p>O token fica nesta sessão do navegador e não é gravado no repositório do site.</p></div></article>
+            <article class="panel setting-card"><div class="setting-icon">⇩</div><div><h3>Backup criptografado</h3><p>Baixe uma cópia protegida pela senha do cofre para transferir entre aparelhos.</p></div><button class="secondary-btn" id="backupBtn">Baixar backup</button></article>
+            <article class="panel setting-card"><div class="setting-icon">⇧</div><div><h3>Importar backup</h3><p>Restaure um backup criptografado ou importe o JSON da <a href="https://github.com/liderancaindigofabio-lab/aroeiragfitness-data/blob/main/aroeira_data.json" target="_blank" rel="noopener noreferrer">base privada atual</a>. No GitHub, baixe o arquivo e selecione-o aqui.</p></div><label class="secondary-btn file-btn">Selecionar arquivo<input type="file" id="importFile" accept="application/json,.json"></label><div id="importStatus" class="small-status"></div></article>
+            <article class="panel setting-card"><div class="setting-icon">▣</div><div><h3>Exportar planilha</h3><p>CSV sem criptografia; guarde em local seguro.</p></div><button class="secondary-btn" id="backupCsvBtn">Exportar CSV</button></article>
+            <article class="panel setting-card"><div class="setting-icon">🔒</div><div><h3>Trocar senha do cofre</h3><p>A senha protege os dados deste aparelho e os backups criptografados.</p></div><button class="secondary-btn" id="changeVaultPasswordBtn">Trocar senha</button></article>
           </div>
-          <article id="pendingNotice" class="panel security-note hidden" role="alert"><strong>Há uma alteração local pendente</strong><p>Ela não foi enviada para evitar substituir dados mais recentes. Baixe a cópia para revisar antes de remover esta pendência.</p><div class="modal-actions"><button class="secondary-btn" id="exportPendingBtn" type="button">Baixar pendência</button><button class="secondary-btn" id="clearPendingBtn" type="button">Remover após guardar</button></div></article>
-          <article class="panel security-note"><strong>Proteção dos dados</strong><p>O arquivo continua no repositório privado da academia. O painel só sincroniza quando há conexão com o GitHub; sem conexão, alterações ficam identificadas como pendentes e não são tratadas como dados atuais.</p></article>
+          <article class="panel security-note"><strong>Sem servidor</strong><p>Os dados ficam criptografados neste navegador. Cada aparelho mantém seu próprio cofre: para transferir ou sincronizar manualmente, exporte e importe o backup. Se apagar os dados do navegador sem backup, os registros serão perdidos. Use uma senha longa; senhas como 12345 são fáceis de adivinhar.</p></article>
         </section>
       </div>
     </main>
@@ -134,6 +133,7 @@
 
   <div id="overdueModal" class="overlay hidden"><div class="modal large"><button class="modal-close" data-close="overdueModal">×</button><div class="modal-head"><div><div class="eyebrow">ACOMPANHAMENTO</div><h2>Vencidos e atrasados</h2><p>Envie o lembrete adequado para cada aluno.</p></div></div><div class="reminder-filters" role="group" aria-label="Filtrar status"><button type="button" class="filter-chip active" data-reminder-filter="all">Todos</button><button type="button" class="filter-chip" data-reminder-filter="vencido">Vencidos</button><button type="button" class="filter-chip" data-reminder-filter="atrasado">Atrasados</button></div><div id="overdueList" class="overdue-list"></div></div></div>
 
-  <script src="app.js?v=15" defer></script>
+  <script src="app.js?v=16" defer></script>
 </body>
 </html>
+

@@ -1,7 +1,15 @@
 'use strict';
 
-try { localStorage.removeItem('aroeiraGfitness.cache.v3'); } catch {}
-let pendingExported = false;
+const VAULT_DB_NAME = 'aroeiraGfitness.local-vault.v1';
+const VAULT_STORE = 'vaults';
+const VAULT_ID = 'main';
+const VAULT_FORMAT = 'aroeira-gfitness-encrypted-backup';
+const VAULT_VERSION = 1;
+const KDF_ITERATIONS = 600000;
+const LEGACY_CACHE_KEY = 'aroeiraGfitness.cache.v3';
+const LEGACY_PENDING_KEY = 'aroeiraGfitness.pending';
+const USERNAME = 'Admin';
+const VAULT_AAD = new TextEncoder().encode('AroeiraGFitnessVault:v1');
 
 let state = { students: [], history: [], lastUpdate: null };
 let activeStudentId = null;
@@ -10,6 +18,11 @@ let revenueChart = null;
 let confirmHandler = null;
 let toastTimer = null;
 let syncBusy = false;
+let vaultKey = null;
+let vaultSalt = null;
+let vaultDbPromise = null;
+let saveQueue = Promise.resolve();
+let lastActivityAt = Date.now();
 let overdueFilter = 'all';
 let marketingLogo = null;
 const marketingLogoImage = new Image();
@@ -37,7 +50,7 @@ function addDays(iso, amount) { const d=dateObj(iso); if(!d)return ''; d.setDate
 function addMonthsPreserveDay(iso, amount=1) { const d=dateObj(iso); if(!d)return ''; const day=d.getDate(); d.setDate(1); d.setMonth(d.getMonth()+amount); const last=new Date(d.getFullYear(),d.getMonth()+1,0).getDate(); d.setDate(Math.min(day,last)); return d.toISOString().slice(0,10); }
 function parseMoney(v) { let raw=String(v??'').replace(/R\$\s?/gi,'').trim(); if(raw.includes(',')) raw=raw.replace(/\./g,'').replace(',','.'); const n=Number(raw); return Number.isFinite(n)?Number(n.toFixed(2)):0; }
 function normalizePlan(v) { const s=String(v??'').trim(); if(!s)return ''; if(/CR.*DITO\s*15\s*DIAS/i.test(s))return 'CRÉDITO 15 DIAS'; return s.replace(/\s+/g,' ').toUpperCase(); }
-function normalizeStudent(s) { return {...s, name:String(s?.name??'').trim().toUpperCase(), plan:normalizePlan(s?.plan), value:parseMoney(s?.value), email:String(s?.email??'').trim(), phone:String(s?.phone??'').trim(), due:/^\d{4}-\d{2}-\d{2}$/.test(String(s?.due??''))?String(s.due):'', evaluations:Array.isArray(s?.evaluations)?s.evaluations:[], paymentHistory:Array.isArray(s?.paymentHistory)?s.paymentHistory:[], gymHistory:Array.isArray(s?.gymHistory)?s.gymHistory:[]}; }
+function normalizeStudent(s,index=0) { const rawId=Number(s?.id); return {...s, id:Number.isSafeInteger(rawId)&&rawId>0?rawId:index+1, name:String(s?.name??'').trim().toUpperCase(), plan:normalizePlan(s?.plan), value:parseMoney(s?.value), email:String(s?.email??'').trim(), phone:String(s?.phone??'').trim(), due:/^\d{4}-\d{2}-\d{2}$/.test(String(s?.due??''))?String(s.due):'', evaluations:Array.isArray(s?.evaluations)?s.evaluations:[], paymentHistory:Array.isArray(s?.paymentHistory)?s.paymentHistory:[], gymHistory:Array.isArray(s?.gymHistory)?s.gymHistory:[]}; }
 function normalizeState(data) { state.students=Array.isArray(data?.students)?data.students.map(normalizeStudent):[]; state.history=Array.isArray(data?.history)?data.history:[]; state.lastUpdate=data?.lastUpdate||null; }
 function statusFor(student) {
   const diff=daysUntil(student?.due);
@@ -69,42 +82,97 @@ function paymentEntries() {
 function dueSoonStudents() { return state.students.map(s=>({s,d:daysUntil(s.due)})).filter(x=>x.d!==null && x.d>=0 && x.d<=7).sort((a,b)=>a.d-b.d); }
 function toast(message,type='success') { const el=$('toast'); el.textContent=message; el.className=`toast show ${type}`; clearTimeout(toastTimer); toastTimer=setTimeout(()=>el.className='toast',3200); }
 function setSyncStatus(text,tone='') { const el=$('syncBadge'); el.className=`sync-badge ${tone}`; el.innerHTML=`<span class="dot"></span><span>${escapeHtml(text)}</span>`; }
-function token(){ return window.AGFStorage.token(); }
-function clearToken(){ window.AGFStorage.clearToken(); }
-function hasPendingChanges(){ return window.AGFStorage.hasPending(); }
-async function loadCloud(){ const remote=await window.AGFStorage.load(); normalizeState(remote.data);  return remote.data; }
-async function persistCloud(){
-  const snapshot={students:state.students,history:state.history};
-  try{
-    const result=await window.AGFStorage.save(snapshot);
-    if(result.ok){ normalizeState(result.data);  setSyncStatus(`Sincronizado ${new Date(state.lastUpdate).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}`,'ok'); return true; }
-    if(result.conflict){ normalizeState(result.data);  renderAll(); setSyncStatus('Conflito · alteração local preservada','warn'); updatePendingNotice(); toast('Outro aparelho atualizou os dados. Sua alteração ficou guardada neste dispositivo; confira a pendência antes de reenviar.','error'); return false; }
-    setSyncStatus('Pendência local preservada','warn'); updatePendingNotice(); toast('Há uma pendência local ainda não sincronizada. Ela foi preservada para revisão.','error'); return false;
-  }catch(error){  setSyncStatus('GitHub indisponível · alteração pendente','error'); updatePendingNotice(); toast(githubErrorMessage(error),'error'); return false; }
+function openVaultDb(){
+  if(!window.indexedDB)return Promise.reject(new Error('Este navegador não oferece armazenamento local seguro.'));
+  if(vaultDbPromise)return vaultDbPromise;
+  vaultDbPromise=new Promise((resolve,reject)=>{
+    const request=indexedDB.open(VAULT_DB_NAME,1);
+    request.onupgradeneeded=()=>{const db=request.result;if(!db.objectStoreNames.contains(VAULT_STORE))db.createObjectStore(VAULT_STORE,{keyPath:'id'});};
+    request.onsuccess=()=>{request.result.onversionchange=()=>request.result.close();resolve(request.result);};
+    request.onerror=()=>{vaultDbPromise=null;reject(request.error||new Error('Não foi possível abrir o cofre local.'));};
+    request.onblocked=()=>{vaultDbPromise=null;reject(new Error('Feche outras abas do sistema e tente novamente.'));};
+  });
+  return vaultDbPromise;
+}
+async function readVaultRecord(){
+  const db=await openVaultDb();
+  return new Promise((resolve,reject)=>{const tx=db.transaction(VAULT_STORE,'readonly'),request=tx.objectStore(VAULT_STORE).get(VAULT_ID);request.onsuccess=()=>resolve(request.result||null);request.onerror=()=>reject(request.error||new Error('Não foi possível ler o cofre.'));});
+}
+async function writeVaultRecord(record){
+  const db=await openVaultDb();
+  return new Promise((resolve,reject)=>{const tx=db.transaction(VAULT_STORE,'readwrite');tx.objectStore(VAULT_STORE).put(record);tx.oncomplete=()=>resolve(true);tx.onerror=()=>reject(tx.error||new Error('Não foi possível salvar o cofre.'));tx.onabort=()=>reject(tx.error||new Error('O salvamento local foi cancelado.'));});
+}
+function bytesToBase64(bytes){let binary='';for(let i=0;i<bytes.length;i+=0x8000)binary+=String.fromCharCode(...bytes.subarray(i,i+0x8000));return btoa(binary);}
+function base64ToBytes(value){const binary=atob(String(value||''));return Uint8Array.from(binary,c=>c.charCodeAt(0));}
+async function deriveVaultKey(password,salt){
+  const material=await crypto.subtle.importKey('raw',new TextEncoder().encode(password),'PBKDF2',false,['deriveKey']);
+  return crypto.subtle.deriveKey({name:'PBKDF2',salt,iterations:KDF_ITERATIONS,hash:'SHA-256'},material,{name:'AES-GCM',length:256},false,['encrypt','decrypt']);
+}
+async function encryptVaultRecord(data,key,salt){
+  const iv=crypto.getRandomValues(new Uint8Array(12));
+  const plaintext=new TextEncoder().encode(JSON.stringify(data));
+  const ciphertext=await crypto.subtle.encrypt({name:'AES-GCM',iv,additionalData:VAULT_AAD},key,plaintext);
+  return {id:VAULT_ID,format:VAULT_FORMAT,version:VAULT_VERSION,kdf:'PBKDF2-SHA256',iterations:KDF_ITERATIONS,salt:bytesToBase64(salt),iv:bytesToBase64(iv),ciphertext:bytesToBase64(new Uint8Array(ciphertext)),updatedAt:new Date().toISOString()};
+}
+async function decryptVaultRecord(password,record){
+  if(record?.format!==VAULT_FORMAT||record?.version!==VAULT_VERSION||record?.kdf!=='PBKDF2-SHA256')throw new Error('Formato de backup não reconhecido.');
+  if(Number(record.iterations)!==KDF_ITERATIONS)throw new Error('Parâmetros de criptografia não reconhecidos.');
+  const salt=base64ToBytes(record.salt),iv=base64ToBytes(record.iv),ciphertext=base64ToBytes(record.ciphertext);
+  if(salt.length!==16||iv.length!==12||ciphertext.length<16)throw new Error('Backup criptografado inválido.');
+  const key=await deriveVaultKey(password,salt);
+  const plaintext=await crypto.subtle.decrypt({name:'AES-GCM',iv,additionalData:VAULT_AAD},key,ciphertext);
+  const data=JSON.parse(new TextDecoder().decode(plaintext));
+  if(!Array.isArray(data?.students)||!Array.isArray(data?.history))throw new Error('O backup não contém os dados esperados.');
+  return {data,key,salt};
+}
+function readLegacyLocalData(){
+  try{const pending=JSON.parse(localStorage.getItem(LEGACY_PENDING_KEY)||'null');const snapshots=Array.isArray(pending?.snapshots)?pending.snapshots:[];for(let i=snapshots.length-1;i>=0;i--){const data=snapshots[i]?.snapshot;if(Array.isArray(data?.students)&&Array.isArray(data?.history))return data;}if(Array.isArray(pending?.students))return pending;}catch{}
+  try{const cache=JSON.parse(localStorage.getItem(LEGACY_CACHE_KEY)||'null');if(Array.isArray(cache?.students))return cache;}catch{}
+  return null;
+}
+function clearLegacyPlaintext(){try{localStorage.removeItem(LEGACY_CACHE_KEY);localStorage.removeItem(LEGACY_PENDING_KEY);}catch{}try{sessionStorage.removeItem('aroeiraGfitness.githubToken');sessionStorage.removeItem('aroeiraGfitness.session');}catch{}}
+function saveCache(){
+  if(!vaultKey||!vaultSalt)return Promise.resolve(false);
+  const key=vaultKey,salt=vaultSalt;
+  const snapshot=JSON.parse(JSON.stringify({students:state.students,history:state.history,lastUpdate:state.lastUpdate||new Date().toISOString()}));
+  saveQueue=saveQueue.catch(()=>{}).then(async()=>writeVaultRecord(await encryptVaultRecord(snapshot,key,salt)));
+  return saveQueue;
+}
+async function login(username,password){
+  if(String(username||'').trim().toLowerCase()!==USERNAME.toLowerCase()||!password)throw new Error('Login ou senha inválidos.');
+  if(!window.crypto?.subtle)throw new Error('Este navegador não oferece criptografia local segura. Abra o site por HTTPS.');
+  const record=await readVaultRecord();
+  if(record){
+    let unlocked;
+    try{unlocked=await decryptVaultRecord(String(password),record);}catch{throw new Error('Senha incorreta ou cofre danificado.');}
+    vaultKey=unlocked.key;vaultSalt=unlocked.salt;normalizeState(unlocked.data);return {created:false};
+  }
+  if(String(password).length<10&&!window.confirm('Senha curta detectada. Um backup roubado poderá ser testado offline. Quer continuar mesmo assim?'))throw new Error('Criação do cofre cancelada.');
+  const legacy=readLegacyLocalData();
+  if(legacy&&!window.confirm('Encontrei dados antigos salvos neste navegador. Vou criptografá-los com esta senha e remover a cópia sem criptografia. Continuar?'))throw new Error('Migração local cancelada.');
+  normalizeState(legacy||{students:[],history:[],lastUpdate:new Date().toISOString()});
+  vaultSalt=crypto.getRandomValues(new Uint8Array(16));
+  vaultKey=await deriveVaultKey(String(password),vaultSalt);
+  try{await saveCache();}catch(error){vaultKey=null;vaultSalt=null;state={students:[],history:[],lastUpdate:null};throw new Error('Não consegui criar o cofre local; os dados antigos foram mantidos.');}
+  clearLegacyPlaintext();
+  return {created:true,imported:Boolean(legacy)};
 }
 async function syncNow(showToast=true){
-  if(syncBusy)return; syncBusy=true; setSyncStatus('Sincronizando pelo GitHub...','warn');
-  try{
-    const result=await window.AGFStorage.sync();
-    normalizeState(result.data);  renderAll(); updatePendingNotice();
-    if(result.pendingConflict){ setSyncStatus('Online · pendência local preservada','warn'); if(showToast)toast('Encontrei uma edição antiga deste aparelho. Não a enviei para evitar sobrescrever dados recentes. Baixe e revise a pendência nas configurações.','error'); }
-    else { setSyncStatus(`Sincronizado ${new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}`,'ok'); if(showToast)toast(result.pendingSynced?'Pendência segura sincronizada.':'Dados sincronizados.'); }
-  }catch(error){ updatePendingNotice(); if(error.status===401){logout(false,'Token inválido ou expirado. Entre novamente com um token válido.');} else { setSyncStatus('GitHub indisponível','error'); if(showToast)toast(githubErrorMessage(error),'error'); } }
+  if(syncBusy||!vaultKey)return;
+  syncBusy=true;setSyncStatus('Salvando cofre local...','warn');
+  try{await saveCache();renderAll();setSyncStatus('Salvo neste aparelho','ok');if(showToast)toast('Dados salvos neste aparelho. A transferência entre aparelhos é manual.');}
+  catch(error){setSyncStatus('Erro ao salvar cofre','error');toast('Não consegui salvar os dados criptografados. Não feche esta página e tente novamente.','error');}
   finally{syncBusy=false;}
 }
-function githubErrorMessage(error){
-  if(error?.status===400)return 'Use um token Fine-grained do GitHub, restrito ao repositório privado de dados.';
-  if(error?.status===401)return 'Token inválido ou expirado. Confira o token Fine-grained do GitHub.';
-  if(error?.status===403)return 'O token não tem permissão de leitura e gravação de conteúdo no repositório privado da academia.';
-  if(error?.status===404)return 'O GitHub não encontrou o arquivo privado. Confira se o token foi limitado ao repositório de dados correto.';
-  if(error?.name==='TypeError'||error?.name==='AbortError')return 'Não consegui conectar ao GitHub. Confira a internet e tente novamente.';
-  if(error?.code==='LOCAL_PENDING')return 'Há uma pendência local. Exporte e revise-a antes de continuar.';
-  return 'Não foi possível sincronizar com o GitHub. Nenhum dado remoto foi substituído.';
-}
-function updatePendingNotice(){ const box=$('pendingNotice'); if(box)box.classList.toggle('hidden',!hasPendingChanges()); }
 function showApp(){ $('loginScreen').classList.add('hidden'); $('appShell').classList.remove('hidden'); }
-function showLogin(){ $('appShell').classList.add('hidden'); $('loginScreen').classList.remove('hidden'); const field=$('githubToken'); if(field)field.value=''; }
-function logout(show=true,message=''){ clearToken(); state={students:[],history:[],lastUpdate:null}; try{const notice=message||(show?'Sessão encerrada.':'');if(notice)sessionStorage.setItem('aroeiraGfitness.loginNotice',notice);}catch{} window.location.reload(); }
+function showLogin(){ $('appShell').classList.add('hidden'); $('loginScreen').classList.remove('hidden'); $('pass').value=''; }
+async function logout(show=true){
+  try{await saveCache();}catch{}
+  vaultKey=null;vaultSalt=null;state={students:[],history:[],lastUpdate:null};activeStudentId=null;
+  $('profileContent').innerHTML='';$('overdueList').innerHTML='';$('studentForm').reset();$('confirmMessage').textContent='';
+  qsa('.overlay').forEach(o=>o.classList.add('hidden'));document.body.style.overflow='';
+  renderAll();showLogin();if(show)toast('Cofre bloqueado.');
+}
 function switchTab(tab){ qsa('.tab').forEach(x=>x.classList.toggle('active',x.id===`tab-${tab}`)); qsa('.nav-item[data-tab]').forEach(x=>x.classList.toggle('active',x.dataset.tab===tab)); const titles={dashboard:'Dashboard',students:'Alunos',marketing:'Marketing',history:'Histórico de pagamentos',backup:'Backup e configurações'}; $('pageTitle').textContent=titles[tab]||'Dashboard'; if(window.innerWidth<=760)$('sidebar').classList.remove('open'); if(tab==='dashboard')renderDashboard(); if(tab==='students')renderStudents(); if(tab==='history')renderHistory(); }
 function badge(status){ return `<span class="badge ${status.tone}">${escapeHtml(status.label)}</span>`; }
 function renderDashboard(){
@@ -129,11 +197,11 @@ function renderStudents(){
   const tbody=$('studentsTable'); const search=$('search').value.trim().toLowerCase(); const filter=$('filter').value; let rows=[...state.students];
   if(filter==='ProxVencimento')rows.sort((a,b)=>(daysUntil(a.due)??9999)-(daysUntil(b.due)??9999)); if(filter==='DistVencimento')rows.sort((a,b)=>(daysUntil(b.due)??-9999)-(daysUntil(a.due)??-9999));
   rows=rows.filter(s=>{const text=`${s.name} ${s.phone} ${s.email}`.toLowerCase(); if(search&&!text.includes(search))return false; const st=statusFor(s).label, disp=displayStatus(s).label; if(['Em Dia','Pendente','Vencido','Atrasado'].includes(filter)&&st!==filter)return false; if(filter==='Pago'&&disp!=='Pago')return false; return true;});
-  $('studentCount').textContent=`${rows.length} aluno${rows.length===1?'':'s'}`; $('studentEmpty').classList.toggle('hidden',rows.length>0); tbody.innerHTML=rows.map(s=>`<tr><td><div class="student-name">${escapeHtml(s.name)}</div><span class="student-meta">${escapeHtml(s.phone||s.email||'Sem contato')}</span></td><td>${escapeHtml(s.plan||'Sem plano')}<span class="student-meta">${money(s.value)}</span></td><td>${formatDate(s.due)}</td><td>${badge(displayStatus(s))}</td><td><div class="row-actions"><button class="mini-btn gold" data-action="profile" data-id="${escapeHtml(s.id)}">Perfil</button><button class="mini-btn" data-action="edit" data-id="${escapeHtml(s.id)}">Editar</button><button class="mini-btn red" data-action="delete" data-id="${escapeHtml(s.id)}">Excluir</button></div></td></tr>`).join('');
+  $('studentCount').textContent=`${rows.length} aluno${rows.length===1?'':'s'}`; $('studentEmpty').classList.toggle('hidden',rows.length>0); tbody.innerHTML=rows.map(s=>`<tr><td><div class="student-name">${escapeHtml(s.name)}</div><span class="student-meta">${escapeHtml(s.phone||s.email||'Sem contato')}</span></td><td>${escapeHtml(s.plan||'Sem plano')}<span class="student-meta">${money(s.value)}</span></td><td>${formatDate(s.due)}</td><td>${badge(displayStatus(s))}</td><td><div class="row-actions"><button class="mini-btn gold" data-action="profile" data-id="${s.id}">Perfil</button><button class="mini-btn" data-action="edit" data-id="${s.id}">Editar</button><button class="mini-btn red" data-action="delete" data-id="${s.id}">Excluir</button></div></td></tr>`).join('');
 }
 function renderHistory(){
   const entries=paymentEntries(); const now=todayISO(); $('historyMonth').textContent=money(totalRevenue('month')); $('historyYear').textContent=money(totalRevenue('year')); $('historyCount').textContent=entries.length;
-  $('historyEmpty').classList.toggle('hidden',entries.length>0); $('historyTable').innerHTML=entries.map(({student,payment})=>`<tr><td>${formatDate(payment.date)}</td><td><div class="student-name">${escapeHtml(student.name)}</div><span class="student-meta">${escapeHtml(student.plan||'Sem plano')}</span></td><td>${escapeHtml(payment.month||monthLabel(payment.date))}</td><td><strong class="history-value">${money(payment.value)}</strong></td><td><div class="row-actions"><button class="mini-btn" data-action="profile-payment" data-id="${escapeHtml(student.id)}">Abrir aluno</button></div></td></tr>`).join('');
+  $('historyEmpty').classList.toggle('hidden',entries.length>0); $('historyTable').innerHTML=entries.map(({student,payment})=>`<tr><td>${formatDate(payment.date)}</td><td><div class="student-name">${escapeHtml(student.name)}</div><span class="student-meta">${escapeHtml(student.plan||'Sem plano')}</span></td><td>${escapeHtml(payment.month||monthLabel(payment.date))}</td><td><strong class="history-value">${money(payment.value)}</strong></td><td><div class="row-actions"><button class="mini-btn" data-action="profile-payment" data-id="${student.id}">Abrir aluno</button></div></td></tr>`).join('');
 }
 function renderAll(){ renderDashboard(); renderStudents(); renderHistory(); populatePlans(); }
 function populatePlans(){ const plans=[...new Set(state.students.map(s=>normalizePlan(s.plan)).filter(Boolean))].sort(); const select=$('plan'); const current=select.value; select.innerHTML='<option value="">Sem plano</option>'+plans.map(p=>`<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join(''); if(plans.includes(current))select.value=current; }
@@ -153,7 +221,7 @@ function evalField(id,label,type,value=''){return `<label>${escapeHtml(label)}<i
 function openConfirm(title,message,handler){$('confirmTitle').textContent=title;$('confirmMessage').textContent=message;confirmHandler=handler;openModal('confirmModal');}
 function saveStudentFromForm(e){ e.preventDefault(); const id=$('studentId').value; const payload={name:$('name').value.trim().toUpperCase(),phone:$('phone').value.trim(),email:$('email').value.trim(),plan:normalizePlan($('plan').value),value:parseMoney($('value').value),due:$('due').value,payment:$('payment').value}; if(!payload.name||!payload.due){toast('Preencha nome e vencimento.','error');return;} if(id){const s=state.students.find(x=>String(x.id)===String(id)); if(!s)return; const oldDue=String(s.due||''); const paymentHistory=Array.isArray(s.paymentHistory)?s.paymentHistory:[]; const dueWasAdvanced=Boolean(oldDue&&payload.due>oldDue); if(dueWasAdvanced){const paidAt=todayISO(); const alreadyRegistered=paymentHistory.some(p=>String(p.date)===paidAt&&Number(p.value)===Number(payload.value)); if(!alreadyRegistered)paymentHistory.push({month:monthLabel(paidAt),value:payload.value,date:paidAt}); payload.payment='Pago';} const preserved={evaluations:Array.isArray(s.evaluations)?s.evaluations:[],paymentHistory,gymHistory:Array.isArray(s.gymHistory)?s.gymHistory:[]}; Object.assign(s,payload,preserved); } else {payload.id=nextId();payload.evaluations=[];payload.paymentHistory=[];payload.gymHistory=[];state.students.push(payload);} saveAndRefresh(id?`Aluno ${payload.name} atualizado.`:`Aluno ${payload.name} cadastrado.`); closeModal('studentModal');}
 function nextId(){return state.students.reduce((max,s)=>Math.max(max,Number(s.id)||0),0)+1;}
-async function saveAndRefresh(message){ renderAll();toast(message);await persistCloud(); }
+async function saveAndRefresh(message){try{await saveCache();renderAll();setSyncStatus('Salvo neste aparelho','ok');toast(message);return true;}catch(error){setSyncStatus('Erro ao salvar cofre','error');toast('Não consegui salvar os dados criptografados. Confira o espaço disponível e tente novamente.','error');return false;}}
 function editStudent(id){const s=state.students.find(x=>String(x.id)===String(id));if(s)openStudentForm(s);}
 function deleteStudent(id){const s=state.students.find(x=>String(x.id)===String(id));if(!s)return;openConfirm('Excluir aluno?',`O aluno ${s.name} e todo o histórico dele serão removidos. Essa ação não pode ser desfeita.`,async()=>{state.students=state.students.filter(x=>String(x.id)!==String(id));await saveAndRefresh('Aluno excluído.');});}
 function confirmPayment(){const s=state.students.find(x=>String(x.id)===String(activeStudentId));if(!s)return;const amount=s.value;openConfirm('Confirmar pagamento?',`Registrar ${money(amount)} para ${s.name} e avançar o vencimento em um mês?`,async()=>{const paidAt=todayISO();if(!s.paymentHistory)s.paymentHistory=[];s.paymentHistory.push({month:monthLabel(paidAt),value:amount,date:paidAt});s.payment='Pago';s.due=addMonthsPreserveDay(s.due||paidAt,1);await saveAndRefresh('Pagamento confirmado. Próximo vencimento atualizado.');renderProfile();});}
@@ -181,7 +249,7 @@ function renderOverdueModal(){
   const all=overdueStudents();
   const list=overdueFilter==='all'?all:all.filter(s=>statusFor(s).label.toLowerCase()===overdueFilter);
   qsa('[data-reminder-filter]').forEach(b=>b.classList.toggle('active',b.dataset.reminderFilter===overdueFilter));
-  $('overdueList').innerHTML=list.length?list.map(s=>{const st=statusFor(s); return `<div class="overdue-row"><div class="list-main"><strong>${escapeHtml(s.name)}</strong><small>${badge(st)} · venceu em ${formatDate(s.due)}</small></div><button class="secondary-btn" data-reminder-id="${escapeHtml(s.id)}" ${s.phone?'':'disabled'}>WhatsApp</button></div>`;}).join(''):'<div class="empty"><p>Nenhum aluno vencido ou atrasado.</p></div>';
+  $('overdueList').innerHTML=list.length?list.map(s=>{const st=statusFor(s); return `<div class="overdue-row"><div class="list-main"><strong>${escapeHtml(s.name)}</strong><small>${badge(st)} · venceu em ${formatDate(s.due)}</small></div><button class="secondary-btn" data-reminder-id="${s.id}" ${s.phone?'':'disabled'}>WhatsApp</button></div>`;}).join(''):'<div class="empty"><p>Nenhum aluno vencido ou atrasado.</p></div>';
   openModal('overdueModal');
 }
 function pixPayload(key,name,city,value,desc){const f=(id,val)=>id+String(val.length).padStart(2,'0')+val;const gui='br.gov.bcb.pix';let merchant=f('00',gui)+f('01',key)+f('02',desc.slice(0,25));let p=f('00','01')+f('26',merchant)+f('52','0000')+f('53','986')+f('54',value)+f('58','BR')+f('59',name.slice(0,25))+f('60',city.slice(0,15))+f('62',f('05','***'));return p+'6304'+crc16(p);}
@@ -225,32 +293,41 @@ function renderMarketingCard(command){
 }
 function downloadMarketingCard(){const canvas=$('marketingCanvas');if(!canvas?.dataset.generated){toast('Gere um card primeiro.','error');return;}const a=document.createElement('a');a.download=`AROEIRA_G_FITNESS_MARKETING_${todayISO()}.png`;a.href=canvas.toDataURL('image/png');a.click();toast('Imagem baixada com sucesso.');}
 
-function exportCsv(){const rows=[['Nome','Email','Telefone','Plano','Valor','Vencimento','Status']];state.students.forEach(s=>rows.push([s.name,s.email,s.phone,s.plan,s.value,s.due,displayStatus(s).label]));const csv='\uFEFF'+rows.map(r=>r.map(v=>`"${String(v??'').replace(/"/g,'""')}"`).join(';')).join('\n');downloadBlob(csv,'AROEIRA_ALUNOS.csv','text/csv;charset=utf-8');}
-function backupJson(){downloadBlob(JSON.stringify({students:state.students,history:state.history,lastUpdate:state.lastUpdate},null,2),'AROEIRA_BACKUP.json','application/json');}
-function exportPendingBackup(){const pending=window.AGFStorage.exportPending();if(!pending){toast('Não há pendência local para exportar.','error');updatePendingNotice();return;}downloadBlob(pending,'AROEIRA_PENDENCIAS_LOCAIS.json','application/json');pendingExported=true;toast('Cópia das pendências baixada. Guarde-a antes de remover a pendência local.');}
-function clearPendingBackup(){if(!window.AGFStorage.hasPending()){updatePendingNotice();toast('Não há pendência local.');return;}if(!pendingExported){toast('Baixe primeiro a cópia das pendências.','error');return;}openConfirm('Remover pendências deste aparelho?','Isso apaga apenas a cópia local depois de você ter baixado o arquivo. Não altera os dados do GitHub.',async()=>{window.AGFStorage.clearPending();pendingExported=false;updatePendingNotice();await syncNow(false);toast('Pendência local removida.');});}
+function exportCsv(){const rows=[['Nome','Email','Telefone','Plano','Valor','Vencimento','Status']];state.students.forEach(s=>rows.push([s.name,s.email,s.phone,s.plan,s.value,s.due,displayStatus(s).label]));const cell=v=>{let value=String(v??'');if(/^[\s\u0000-\u001f]*[=+\-@]/.test(value))value="'"+value;return `"${value.replace(/"/g,'""')}"`;};const csv='\uFEFF'+rows.map(r=>r.map(cell).join(';')).join('\n');downloadBlob(csv,'AROEIRA_ALUNOS.csv','text/csv;charset=utf-8');}
+async function backupJson(){
+  try{await saveCache();const record=await readVaultRecord();if(!record)throw new Error('O cofre ainda não foi salvo.');const backup={...record};delete backup.id;backup.exportedAt=new Date().toISOString();downloadBlob(JSON.stringify(backup,null,2),'AROEIRA_BACKUP_CRIPTOGRAFADO.json','application/json');toast('Backup criptografado baixado. Guarde também a senha do cofre.');}
+  catch(error){toast(error.message||'Não consegui gerar o backup.','error');}
+}
+async function changeVaultPassword(){
+  const first=prompt('Digite a nova senha do cofre (recomendado: pelo menos 10 caracteres):');if(first===null)return;if(!String(first).trim()){toast('A senha não pode ficar vazia.','error');return;}
+  if(String(first).length<10&&!window.confirm('Essa senha é curta e facilita ataques contra um backup roubado. Continuar mesmo assim?'))return;
+  const second=prompt('Digite novamente a nova senha:');if(second===null)return;
+  if(first!==second){toast('As senhas não coincidem.','error');return;}
+  const oldKey=vaultKey,oldSalt=vaultSalt;
+  try{vaultSalt=crypto.getRandomValues(new Uint8Array(16));vaultKey=await deriveVaultKey(first,vaultSalt);await saveCache();toast('Senha do cofre alterada. Backups antigos ainda usam a senha anterior.');}
+  catch{vaultKey=oldKey;vaultSalt=oldSalt;toast('Não consegui trocar a senha. O cofre anterior foi mantido.','error');}
+}
 function downloadBlob(content,name,type){const blob=new Blob([content],{type});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),500);}
-async function importBackup(file){if(!file)return;try{const data=JSON.parse(await file.text());if(!Array.isArray(data.students))throw new Error('O arquivo não possui uma lista de alunos.');openConfirm('Importar backup?',`O backup contém ${data.students.length} alunos. Os dados atuais serão substituídos.`,async()=>{normalizeState(data);renderAll();const ok=await persistCloud();$('importStatus').textContent=ok?'Backup importado e sincronizado.':'Backup importado localmente; sincronização pendente.';});}catch(error){$('importStatus').textContent='Erro: '+error.message;toast(error.message,'error');}}
-$('loginForm').addEventListener('submit',async e=>{
-  e.preventDefault();
-  const form=e.currentTarget;
-  const button=form.querySelector('button[type="submit"]');
-  const originalText=button.textContent;
-  const input=$('githubToken');
-  const suppliedToken=input.value.trim();
-  button.disabled=true; button.textContent='Conectando ao GitHub...';
-  $('loginError').classList.add('hidden');
+async function importBackup(file){
+  if(!file)return;
   try{
-    const remote=await window.AGFStorage.connect(suppliedToken);
-    normalizeState(remote.data);  showApp();
-    await syncNow(false); renderAll(); updatePendingNotice();
-  }catch(error){
-    $('loginError').textContent=githubErrorMessage(error);
-    $('loginError').classList.remove('hidden');
-  }finally{
-    input.value=''; button.disabled=false; button.textContent=originalText;
-  }
-});
+    if(!vaultKey)throw new Error('Desbloqueie o cofre antes de importar.');
+    if(file.size>50*1024*1024)throw new Error('O arquivo excede o limite de 50 MB.');
+    const parsed=JSON.parse(await file.text());
+    let data,encrypted=parsed?.format===VAULT_FORMAT;
+    if(encrypted){const backupPassword=prompt('Digite a senha usada para criar este backup:');if(backupPassword===null)return;data=(await decryptVaultRecord(backupPassword,parsed)).data;}
+    else if(Array.isArray(parsed?.students))data=parsed;
+    else throw new Error('O arquivo não possui os dados esperados.');
+    openConfirm('Restaurar backup?',`${data.students.length} alunos serão importados e os dados atuais serão substituídos. ${encrypted?'O backup será recriptografado para este cofre.':'Este JSON está sem criptografia e será protegido ao ser salvo.'}`,async()=>{
+      const previous=JSON.parse(JSON.stringify(state));
+      try{normalizeState(data);await saveCache();renderAll();$('importStatus').textContent='Backup importado e criptografado neste aparelho.';setSyncStatus('Salvo neste aparelho','ok');toast('Backup restaurado com sucesso.');}
+      catch(error){normalizeState(previous);renderAll();$('importStatus').textContent='Erro ao salvar o backup criptografado.';toast('Falha ao salvar; os dados anteriores foram restaurados na tela.','error');}
+    });
+  }catch(error){$('importStatus').textContent='Erro: '+error.message;toast(error.message,'error');}
+}
+
+
+$('loginForm').addEventListener('submit',async e=>{e.preventDefault();const form=e.currentTarget;const button=form.querySelector('button[type="submit"]');const originalText=button.textContent;button.disabled=true;button.textContent='Abrindo cofre...';$('loginError').classList.add('hidden');try{const result=await login($('user').value.trim(),$('pass').value);$('pass').value='';lastActivityAt=Date.now();showApp();renderAll();setSyncStatus('Cofre local ativo','ok');if(result.created&&!result.imported)toast('Cofre criado vazio neste aparelho. Importe um backup para trazer seus dados antigos.','error');else if(result.imported)toast('Dados locais antigos foram criptografados neste aparelho.');}catch(error){$('loginError').textContent=error.message||'Não foi possível abrir o cofre local.';$('loginError').classList.remove('hidden');}finally{button.disabled=false;button.textContent=originalText;}});
 $('logoutBtn').addEventListener('click',()=>logout());
 $('kpiLate').addEventListener('click',()=>{overdueFilter='all';renderOverdueModal();});
 qsa('[data-reminder-filter]').forEach(b=>b.addEventListener('click',()=>{overdueFilter=b.dataset.reminderFilter;renderOverdueModal();}));
@@ -264,8 +341,7 @@ qsa('.nav-item[data-tab]').forEach(btn=>btn.addEventListener('click',()=>switchT
 qsa('[data-tab-link]').forEach(btn=>btn.addEventListener('click',()=>switchTab(btn.dataset.tabLink)));
 $('newStudent').addEventListener('click',()=>openStudentForm());$('newStudentDash').addEventListener('click',()=>openStudentForm());
 $('studentForm').addEventListener('submit',saveStudentFromForm);$('search').addEventListener('input',renderStudents);$('filter').addEventListener('change',renderStudents);$('chartPeriod').addEventListener('change',()=>renderChart($('chartPeriod').value));$('viewDue').addEventListener('click',()=>{$('filter').value='ProxVencimento';switchTab('students');renderStudents();});
-$('exportCsvBtn').addEventListener('click',exportCsv);$('backupCsvBtn').addEventListener('click',exportCsv);$('backupBtn').addEventListener('click',backupJson);$('importFile').addEventListener('change',e=>importBackup(e.target.files[0]));
-$('exportPendingBtn').addEventListener('click',exportPendingBackup);$('clearPendingBtn').addEventListener('click',clearPendingBackup);
+$('exportCsvBtn').addEventListener('click',exportCsv);$('backupCsvBtn').addEventListener('click',exportCsv);$('backupBtn').addEventListener('click',backupJson);$('changeVaultPasswordBtn').addEventListener('click',changeVaultPassword);$('importFile').addEventListener('change',e=>importBackup(e.target.files[0]));
 $('confirmAction').addEventListener('click',async()=>{const handler=confirmHandler;confirmHandler=null;closeModal('confirmModal');if(handler)await handler();});
 qsa('[data-close]').forEach(btn=>btn.addEventListener('click',()=>closeModal(btn.dataset.close)));
 qsa('.overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)closeModal(o.id)}));
@@ -275,15 +351,15 @@ $('profileContent').addEventListener('click',e=>{const tab=e.target.closest('[da
 $('profileContent').addEventListener('submit',e=>{if(e.target.id==='evalForm')addEvaluation(e)});
 $('profileContent').addEventListener('click',e=>{if(e.target.id==='copyPixBtn')copyPix();if(e.target.id==='confirmPaymentBtn')confirmPayment();});
 
-function boot(){
-  if(token()){
-    showApp();setSyncStatus('Verificando acesso ao GitHub...','warn');syncNow(false);
-  } else {
-    showLogin();
-    try{const notice=sessionStorage.getItem('aroeiraGfitness.loginNotice');if(notice){$('loginError').textContent=notice;$('loginError').classList.remove('hidden');sessionStorage.removeItem('aroeiraGfitness.loginNotice');}}catch{}
-  }
-  window.addEventListener('online',()=>{if(token())syncNow(false)});
-  document.addEventListener('visibilitychange',()=>{if(!document.hidden&&token())syncNow(false)});
-  window.setInterval(()=>{if(token()&&!document.hidden)syncNow(false);},60000);
+async function boot(){
+  showLogin();
+  try{
+    if(!window.crypto?.subtle)throw new Error('Abra este sistema por HTTPS para usar criptografia local.');
+    const record=await readVaultRecord(),legacy=readLegacyLocalData();
+    $('loginNote').textContent=record?'Cofre criptografado encontrado neste aparelho. Digite a senha para abrir.':legacy?'Dados antigos detectados neste navegador; serão criptografados ao criar o cofre.':'Primeiro acesso cria um cofre vazio neste aparelho. Importe um backup para trazer dados existentes.';
+  }catch(error){$('loginError').textContent=error.message||'Este navegador não oferece o armazenamento necessário.';$('loginError').classList.remove('hidden');$('loginForm').querySelector('button[type="submit"]').disabled=true;}
+  for(const eventName of ['pointerdown','keydown','touchstart'])window.addEventListener(eventName,()=>{if(vaultKey)lastActivityAt=Date.now();},{passive:true});
+  window.setInterval(()=>{if(vaultKey&&Date.now()-lastActivityAt>15*60*1000)logout(false);},30000);
 }
 boot();
+
