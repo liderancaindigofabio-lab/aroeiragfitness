@@ -1,4 +1,5 @@
 'use strict';
+if(window.top!==window.self){try{window.top.location.replace(window.self.location.href);}catch{document.documentElement.style.display='none';}}
 
 const VAULT_DB_NAME = 'aroeiraGfitness.local-vault.v1';
 const VAULT_STORE = 'vaults';
@@ -130,6 +131,7 @@ function readLegacyLocalData(){
   try{const cache=JSON.parse(localStorage.getItem(LEGACY_CACHE_KEY)||'null');if(Array.isArray(cache?.students))return cache;}catch{}
   return null;
 }
+function hasLegacyLocalData(){try{return localStorage.getItem(LEGACY_CACHE_KEY)!==null||localStorage.getItem(LEGACY_PENDING_KEY)!==null;}catch{return false;}}
 function clearLegacyPlaintext(){try{localStorage.removeItem(LEGACY_CACHE_KEY);localStorage.removeItem(LEGACY_PENDING_KEY);}catch{}try{sessionStorage.removeItem('aroeiraGfitness.githubToken');sessionStorage.removeItem('aroeiraGfitness.session');}catch{}}
 function saveCache(){
   if(!vaultKey||!vaultSalt)return Promise.resolve(false);
@@ -149,6 +151,7 @@ async function login(username,password){
   }
   if(String(password).length<10&&!window.confirm('Senha curta detectada. Um backup roubado poderá ser testado offline. Quer continuar mesmo assim?'))throw new Error('Criação do cofre cancelada.');
   const legacy=readLegacyLocalData();
+  if(hasLegacyLocalData()&&!legacy)throw new Error('Há dados antigos em formato não reconhecido. Não criei um cofre vazio nem apaguei esses dados para evitar perda.');
   if(legacy&&!window.confirm('Encontrei dados antigos salvos neste navegador. Vou criptografá-los com esta senha e remover a cópia sem criptografia. Continuar?'))throw new Error('Migração local cancelada.');
   normalizeState(legacy||{students:[],history:[],lastUpdate:new Date().toISOString()});
   vaultSalt=crypto.getRandomValues(new Uint8Array(16));
@@ -355,8 +358,8 @@ async function boot(){
   showLogin();
   try{
     if(!window.crypto?.subtle)throw new Error('Abra este sistema por HTTPS para usar criptografia local.');
-    const record=await readVaultRecord(),legacy=readLegacyLocalData();
-    $('loginNote').textContent=record?'Cofre criptografado encontrado neste aparelho. Digite a senha para abrir.':legacy?'Dados antigos detectados neste navegador; serão criptografados ao criar o cofre.':'Primeiro acesso cria um cofre vazio neste aparelho. Importe um backup para trazer dados existentes.';
+    const record=await readVaultRecord(),legacy=readLegacyLocalData(),legacyFound=hasLegacyLocalData();
+    $('loginNote').textContent=record&&legacyFound?'Cofre encontrado. Também há dados antigos locais que serão preservados; confira antes de limpar o navegador.':record?'Cofre criptografado encontrado neste aparelho. Digite a senha para abrir.':legacy?'Dados antigos detectados neste navegador; serão criptografados ao criar o cofre.':legacyFound?'Há dados antigos em formato não reconhecido; não criarei um cofre vazio nem apagarei esses dados.':'Primeiro acesso cria um cofre vazio neste aparelho. Importe um backup para trazer dados existentes.';
   }catch(error){$('loginError').textContent=error.message||'Este navegador não oferece o armazenamento necessário.';$('loginError').classList.remove('hidden');$('loginForm').querySelector('button[type="submit"]').disabled=true;}
   for(const eventName of ['pointerdown','keydown','touchstart'])window.addEventListener(eventName,()=>{if(vaultKey)lastActivityAt=Date.now();},{passive:true});
   window.setInterval(()=>{if(vaultKey&&Date.now()-lastActivityAt>15*60*1000)logout(false);},30000);
