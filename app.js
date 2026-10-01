@@ -155,8 +155,8 @@ async function login(username,password){
   if(legacy&&!window.confirm('Encontrei dados antigos salvos neste navegador. Vou criptografá-los com esta senha e remover a cópia sem criptografia. Continuar?'))throw new Error('Migração local cancelada.');
   normalizeState(legacy||{students:[],history:[],lastUpdate:new Date().toISOString()});
   vaultSalt=crypto.getRandomValues(new Uint8Array(16));
-  vaultKey=await deriveVaultKey(String(password),vaultSalt);
-  try{await saveCache();}catch(error){vaultKey=null;vaultSalt=null;state={students:[],history:[],lastUpdate:null};throw new Error('Não consegui criar o cofre local; os dados antigos foram mantidos.');}
+  try{vaultKey=await deriveVaultKey(String(password),vaultSalt);await saveCache();}
+  catch{vaultKey=null;vaultSalt=null;state={students:[],history:[],lastUpdate:null};throw new Error('Não consegui criar o cofre local; os dados antigos foram mantidos.');}
   clearLegacyPlaintext();
   return {created:true,imported:Boolean(legacy)};
 }
@@ -168,9 +168,9 @@ async function syncNow(showToast=true){
   finally{syncBusy=false;}
 }
 function showApp(){ $('loginScreen').classList.add('hidden'); $('appShell').classList.remove('hidden'); }
-function showLogin(){ $('appShell').classList.add('hidden'); $('loginScreen').classList.remove('hidden'); $('pass').value=''; }
+function showLogin(){ $('appShell').classList.add('hidden'); $('loginScreen').classList.remove('hidden'); $('pass').value='';$('loginNote').textContent='Cofre local criptografado. Digite Admin e sua senha para desbloquear.'; }
 async function logout(show=true){
-  try{await saveCache();}catch{}
+  try{if(vaultKey)await saveCache();}catch{toast('Não consegui confirmar o salvamento; o cofre continua aberto para evitar perda.','error');return;}
   vaultKey=null;vaultSalt=null;state={students:[],history:[],lastUpdate:null};activeStudentId=null;
   $('profileContent').innerHTML='';$('overdueList').innerHTML='';$('studentForm').reset();$('confirmMessage').textContent='';
   qsa('.overlay').forEach(o=>o.classList.add('hidden'));document.body.style.overflow='';
